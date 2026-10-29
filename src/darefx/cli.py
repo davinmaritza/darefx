@@ -262,6 +262,9 @@ def backtest(
     spread: float = typer.Option(1.5, help="Round-trip spread in pips"),
     slippage: float = typer.Option(1.0, help="Slippage in pips"),
     threshold: float = typer.Option(0.40, help="Minimum probability threshold to enter trade"),
+    adx_min: float = typer.Option(0.0, help="Minimum ADX trend strength filter"),
+    sl: float = typer.Option(1.5, help="Stop loss multiplier (x ATR)"),
+    pt: float = typer.Option(1.5, help="Profit target multiplier (x ATR)"),
 ) -> None:
     """Run realistic out-of-sample backtest with transaction costs and fixed fractional risk."""
     import pandas as pd
@@ -275,12 +278,19 @@ def backtest(
     console.print(f"[bold cyan]Running Out-Of-Sample Backtest on {symbol}...[/bold cyan]")
     df_oos = pd.read_parquet(oos_path)
 
+    if adx_min > 0.0 and "adx_14" in df_oos.columns:
+        weak_mask = df_oos["adx_14"] < adx_min
+        df_oos.loc[weak_mask, "prob_buy"] = 0.0
+        df_oos.loc[weak_mask, "prob_sell"] = 0.0
+
     config = BacktestConfig(
         initial_capital=capital,
         risk_per_trade_pct=risk,
         spread_pips=spread,
         slippage_pips=slippage,
         confidence_threshold=threshold,
+        sl_multiplier=sl,
+        pt_multiplier=pt,
     )
 
     engine = BacktestEngine(config=config)
@@ -400,6 +410,10 @@ def tune(
 
     console.print(table)
 
+    trades_path = Path(data_dir) / f"{symbol.lower()}_backtest_trades.csv"
+    eval_result.trade_log.to_csv(trades_path, index=False)
+    console.print(f"Saved optimized trade log to [bold green]{trades_path}[/bold green]")
+
 
 @app.command(name="run-cycle")
 def run_cycle(
@@ -478,6 +492,61 @@ def reset_shutdown() -> None:
     cb = CircuitBreaker()
     cb.reset_shutdown()
     console.print("[bold green]Circuit Breaker successfully reset to ACTIVE state.[/bold green]")
+
+
+@app.command(name="evaluate")
+def evaluate(
+    symbol: str = typer.Option("EURUSD", help="Currency pair"),
+    trades_file: str = typer.Option("data/processed/eurusd_backtest_trades.csv", help="Path to backtest trades CSV"),
+    paper_trades_file: str = typer.Option("", help="Optional path to MT5 paper trades CSV"),
+    trials: int = typer.Option(35, help="Number of model optimization trials"),
+    output_report: str = typer.Option("docs/EVALUATION-REPORT.md", help="Destination markdown report file"),
+) -> None:
+    """Run Deflated Sharpe Ratio (DSR) analysis and generate Phase 5 Go/No-Go Decision Report."""
+    import pandas as pd
+    from darefx.analysis.evaluator import DecisionRecommendation, SystemEvaluator
+
+    t_path = Path(trades_file)
+    if not t_path.exists():
+        console.print(f"[red]Trades file not found at {t_path}. Run 'darefx backtest' or 'darefx tune' first.[/red]")
+        return
+
+    console.print(f"[bold cyan]Running Phase 5 Statistical Significance and Go/No-Go Evaluation for {symbol}...[/bold cyan]")
+    df_trades = pd.read_csv(t_path)
+
+    df_paper = pd.read_csv(paper_trades_file) if paper_trades_file and Path(paper_trades_file).exists() else None
+
+    evaluator = SystemEvaluator()
+    outcome = evaluator.evaluate(trades_df=df_trades, paper_trades_df=df_paper, num_trials=trials)
+    report_content = evaluator.generate_report_markdown(outcome, output_file=output_report)
+
+    rec = outcome.recommendation
+    rec_style = "bold green" if rec == DecisionRecommendation.GO else "bold yellow" if rec == DecisionRecommendation.ITERATE else "bold red"
+
+    console.print(f"\n[bold white]========== PHASE 5 VERDICT: [{rec_style}]{rec.value}[/{rec_style}] (Confidence: {outcome.confidence_pct:.1f}%) ==========[/bold white]\n")
+
+    table = Table(title="Institutional Statistical Verification Metrics")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="bold white")
+    table.add_column("Institutional Criterion", style="yellow")
+    table.add_column("Verdict", style="white")
+
+    verdict_sharpe = "PASS" if outcome.dsr_result.annualized_sharpe >= 0.50 else "FAIL"
+    verdict_psr = "PASS" if outcome.dsr_result.psr >= 0.95 else "FAIL"
+    verdict_dsr = "PASS" if outcome.dsr_result.dsr >= 0.50 else "FAIL"
+    verdict_dd = "PASS" if outcome.metrics.max_drawdown_pct <= 15.0 else "FAIL"
+    verdict_slip = "PASS" if not outcome.reconciliation.slippage.violates_assumption else "FAIL"
+
+    table.add_row("Annualized Sharpe Ratio", f"{outcome.dsr_result.annualized_sharpe:.2f}", "> 0.50 (Phase 3 Gate)", f"[{'green' if verdict_sharpe == 'PASS' else 'red'}]{verdict_sharpe}[/]")
+    table.add_row("Probabilistic Sharpe Ratio (PSR)", f"{outcome.dsr_result.psr * 100:.1f}%", "> 95.0% (5% Significance)", f"[{'green' if verdict_psr == 'PASS' else 'red'}]{verdict_psr}[/]")
+    table.add_row("Deflated Sharpe Ratio (DSR)", f"{outcome.dsr_result.dsr * 100:.1f}%", f"> 50.0% ({trials} trials)", f"[{'green' if verdict_dsr == 'PASS' else 'red'}]{verdict_dsr}[/]")
+    table.add_row("Return Skewness", f"{outcome.dsr_result.skewness:.3f}", "Asymmetric upside", "INFO")
+    table.add_row("Pearson Kurtosis", f"{outcome.dsr_result.kurtosis:.3f}", "Fat-tail leptokurtic (> 3.0)", "INFO")
+    table.add_row("Maximum Drawdown", f"{outcome.metrics.max_drawdown_pct:.2f}%", "< 15.00%", f"[{'green' if verdict_dd == 'PASS' else 'red'}]{verdict_dd}[/]")
+    table.add_row("Mean Execution Slippage", f"{outcome.reconciliation.slippage.mean_slippage_pips:.2f} pips", "<= 1.00 pip assumption", f"[{'green' if verdict_slip == 'PASS' else 'red'}]{verdict_slip}[/]")
+
+    console.print(table)
+    console.print(f"\nSaved comprehensive evaluation report to: [bold green]{output_report}[/bold green]")
 
 
 if __name__ == "__main__":
