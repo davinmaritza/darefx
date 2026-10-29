@@ -549,6 +549,60 @@ def evaluate(
     console.print(f"\nSaved comprehensive evaluation report to: [bold green]{output_report}[/bold green]")
 
 
+@app.command(name="analyze")
+def analyze(
+    symbol: str = typer.Option("EURUSD", help="Currency pair (e.g. EURUSD)"),
+    equity: float = typer.Option(10_000.0, help="Account equity for lot sizing"),
+    live: bool = typer.Option(True, "--live/--no-live", help="Fetch fresh live market data from Yahoo Finance"),
+    json_output: bool = typer.Option(False, "--json", help="Output raw JSON data"),
+) -> None:
+    """Run comprehensive AI market analysis and generate Buy/Sell recommendations."""
+    import json
+    from darefx.analysis.market_analyzer import MarketAnalyzer
+
+    console.print(f"[bold cyan]Initiating DareFX AI Market Analysis for {symbol}...[/bold cyan]")
+    analyzer = MarketAnalyzer(symbol=symbol)
+    try:
+        report = analyzer.analyze(account_equity=equity, fetch_live=live)
+    except Exception as err:
+        console.print(f"[red]Analysis failed: {err}[/red]")
+        return
+
+    if json_output:
+        console.print_json(json.dumps(report.to_dict()))
+        return
+
+    table = Table(title=f"DareFX AI Market Diagnosis & Trade Plan: {symbol}")
+    table.add_column("Parameter / Indicator", style="cyan")
+    table.add_column("Current Value", style="bold white")
+    table.add_column("Diagnosis / Interpretation", style="yellow")
+
+    table.add_row("Current Price", f"{report.current_price:.5f}", f"{report.price_change_pips:+.1f} pips ({report.price_change_pct:+.2f}%)")
+    table.add_row("Day Range", f"{report.low_price:.5f} - {report.high_price:.5f}", "Daily Low - High")
+    table.add_row("Trend Structure", report.trend_bias, f"EMA 9={report.ema_9:.5f}, 21={report.ema_21:.5f}, 50={report.ema_50:.5f}, 200={report.ema_200:.5f}")
+    table.add_row("ADX (14) Trend Strength", f"{report.adx_14:.1f}", report.adx_condition)
+    table.add_row("RSI (14) Momentum", f"{report.rsi_14:.1f}", report.rsi_condition)
+    table.add_row("MACD Histogram", f"{report.macd_hist:+.5f}", report.macd_condition)
+    table.add_row("ATR (14) Daily Volatility", f"{report.atr_pips:.1f} pips", "Expected daily move")
+    table.add_row("Bollinger Range", f"{report.bb_lower:.5f} - {report.bb_upper:.5f}", f"Mid: {report.bb_middle:.5f}")
+
+    table.add_row("ML Prob: Buy (+1)", f"{report.prob_buy * 100:.1f}%", "LightGBM Profit Barrier Target")
+    table.add_row("ML Prob: Neutral (0)", f"{report.prob_neutral * 100:.1f}%", "LightGBM Vertical Expiry")
+    table.add_row("ML Prob: Sell (-1)", f"{report.prob_sell * 100:.1f}%", "LightGBM Stop Loss Target")
+
+    rec_color = "green" if report.recommendation == "BUY" else "red" if report.recommendation == "SELL" else "white"
+    table.add_row("AI Recommendation", f"[{rec_color}]{report.recommendation_title}[/{rec_color}]", report.reasoning)
+
+    if report.recommendation in ("BUY", "SELL"):
+        table.add_row("Planned Entry", f"{report.entry_price:.5f}", "Market order")
+        table.add_row("Stop Loss (SL)", f"{report.stop_loss:.5f}", f"{report.stop_pips:.1f} pips risk")
+        table.add_row("Take Profit (TP)", f"{report.take_profit:.5f}", f"{report.target_pips:.1f} pips target")
+        table.add_row("Risk / Reward Ratio", f"1 : {report.risk_reward_ratio:.1f}", "Asymmetric edge")
+        table.add_row("Recommended Sizing", f"{report.recommended_lots:.2f} lots", f"1.0% risk on ${equity:,.2f}")
+
+    console.print(table)
+
+
 @app.command(name="telegram-bot")
 def telegram_bot() -> None:
     """Start the interactive Telegram Control Server listening for mobile commands and button taps."""
@@ -570,6 +624,7 @@ def telegram_bot() -> None:
 
 if __name__ == "__main__":
     app()
+
 
 
 

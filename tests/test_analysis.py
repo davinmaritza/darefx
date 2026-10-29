@@ -101,3 +101,59 @@ class TestSystemEvaluator:
         assert report_file.exists()
         assert "DareFX — Formal System Evaluation and Go/No-Go Decision Report" in content
         assert "Performance Metric" in content
+
+
+class TestMarketAnalyzer:
+    """Test suite for AI Market Analyzer and automated Buy/Sell diagnosis."""
+
+    def test_market_analyzer_generates_valid_report(self) -> None:
+        from darefx.analysis.market_analyzer import MarketAnalysisReport, MarketAnalyzer
+
+        analyzer = MarketAnalyzer(symbol="EURUSD")
+        report = analyzer.analyze(account_equity=10_000.0, fetch_live=False)
+
+        assert isinstance(report, MarketAnalysisReport)
+        assert report.symbol == "EURUSD"
+        assert report.current_price > 0.5
+        assert report.adx_14 >= 0.0
+        assert 0.0 <= report.rsi_14 <= 100.0
+        assert report.atr_pips > 0.0
+        assert report.recommendation in ("BUY", "SELL", "WAIT & SEE")
+        assert 0.0 <= report.prob_buy <= 1.0
+        assert 0.0 <= report.prob_sell <= 1.0
+        assert 0.0 <= report.prob_neutral <= 1.0
+        assert report.recommended_lots >= 0.01
+
+        # Check serialization and markdown rendering
+        data = report.to_dict()
+        assert data["symbol"] == "EURUSD"
+        assert "recommendation" in data
+        assert "current_price" in data
+
+        md = report.to_telegram_markdown()
+        assert "ANALISIS AI PASAR & REKOMENDASI TRADING" in md
+        assert "DIAGNOSIS TEKNIKAL & REGIME" in md
+        assert "PROBABILITAS MODEL AI (LIGHTGBM)" in md
+
+    def test_telegram_server_routes_analysis_command(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from unittest.mock import MagicMock
+        from darefx.notifications.telegram_server import TelegramServer
+
+        server = TelegramServer(bot_token="test_token", chat_id="123456")
+        sent_messages = []
+
+        def mock_post(url: str, json: dict, timeout: int) -> MagicMock:
+            resp = MagicMock()
+            resp.status_code = 200
+            sent_messages.append(json)
+            return resp
+
+        import requests
+        monkeypatch.setattr(requests, "post", mock_post)
+
+        # Route /analisis
+        server.handle_message("/analisis", 123456)
+        assert len(sent_messages) >= 2  # loading message + final report
+        assert any("Mengambil data live" in m.get("text", "") for m in sent_messages)
+        assert any("ANALISIS AI PASAR" in m.get("text", "") for m in sent_messages)
+
