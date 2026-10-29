@@ -35,7 +35,7 @@ class TelegramServer:
         self.running = False
         self.last_update_id = 0
         self.autowatch_enabled = True
-        self.autotrade_enabled = os.getenv("AUTO_TRADE", "false").lower() == "true"
+        self.autotrade_enabled = os.getenv("AUTO_TRADE", "true").lower() == "true"
         self.last_auto_check = 0.0
 
     def get_keyboard(self) -> dict[str, Any]:
@@ -410,12 +410,17 @@ class TelegramServer:
             logger.debug("Polling error: %s", err)
             return 0
 
-    def start_polling(self, auto_check_interval: int = 14400) -> None:
+    def start_polling(self, auto_check_interval: int = 3600) -> None:
         """Run continuous long-polling listener loop with automated background monitoring."""
         self.running = True
         self.register_bot_commands()
         self.last_auto_check = time.time()
         logger.info("DareFX Telegram server polling started for chat ID %s...", self.allowed_chat_id)
+
+        # Run initial auto-check on startup if enabled
+        if self.autowatch_enabled:
+            logger.info("Executing startup autonomous market check...")
+            self.check_market_auto()
 
         while self.running:
             try:

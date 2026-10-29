@@ -40,7 +40,7 @@ class BotConfig:
     symbol: str = "EURUSD"
     model_path: str = "data/models/lightgbm_eurusd.joblib"
     data_dir: str = "data/processed"
-    confidence_threshold: float = 0.55
+    confidence_threshold: float = 0.40
     adx_min: float = 32.0
     pt_multiplier: float = 1.2
     sl_multiplier: float = 1.0

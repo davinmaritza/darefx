@@ -163,7 +163,7 @@ class MarketAnalyzer:
         data_dir: str = "data/processed",
         model_path: str = "data/models/lightgbm_eurusd.joblib",
         adx_min: float = 32.0,
-        confidence_threshold: float = 0.55,
+        confidence_threshold: float = 0.40,
         pt_multiplier: float = 1.2,
         sl_multiplier: float = 1.0,
     ) -> None:
