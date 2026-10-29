@@ -21,6 +21,7 @@ from darefx.analysis.evaluator import SystemEvaluator
 from darefx.analysis.market_analyzer import MarketAnalyzer
 from darefx.risk.circuit_breaker import CircuitBreaker, CircuitState
 from darefx.trading.bot import BotConfig, TradingBot
+from darefx.trading.mt5_bridge import MT5Bridge, OrderType
 
 logger = logging.getLogger(__name__)
 
@@ -211,20 +212,56 @@ class TelegramServer:
 
         autotrade_str = "🟢 AKTIF (Otomatis Beli/Jual)" if self.autotrade_enabled else "🔴 NONAKTIF (Alert Saja)"
 
-        msg = (
-            "🛡️ *STATUS OPERASIONAL & PROTEKSI MODAL DAREFX*\n"
-            "━━━━━━━━━━━━━━━━━━━━━\n"
-            f"• *Auto-Trade:* `{autotrade_str}`\n"
-            f"• *Status Sirkuit:* `{state_icon}`\n"
-            f"• *Ekuitas Saat Ini:* `${status.current_equity:,.2f}`\n"
-            f"• *Ekuitas Puncak:* `${status.peak_equity:,.2f}`\n"
-            f"• *Saldo Buka Harian:* `${status.daily_open_equity:,.2f}`\n"
-            f"• *P&L Hari Ini:* `{status.daily_pnl_pct:+.2f}%`\n"
-            f"• *Peak Drawdown:* `{status.peak_drawdown_pct:.2f}%` (Max limit: 15%)\n"
-            f"• *Catatan:* _{status.reason}_\n"
-            "━━━━━━━━━━━━━━━━━━━━━"
-        )
-        self.send_reply(chat_id, msg)
+        # Query open positions and live floating PnL
+        bridge = MT5Bridge()
+        bridge.connect()
+        try:
+            positions = bridge.get_positions()
+        except Exception:
+            positions = []
+
+        total_floating_pnl = sum(p.profit for p in positions)
+        live_equity = status.current_equity + total_floating_pnl
+
+        lines = [
+            "🛡️ *STATUS OPERASIONAL & KEUANGAN DAREFX*",
+            "━━━━━━━━━━━━━━━━━━━━━",
+            f"• *Auto-Trade:* `{autotrade_str}`",
+            f"• *Status Sirkuit:* `{state_icon}`",
+            f"• *Saldo Akun (Balance):* `${status.current_equity:,.2f}`",
+            f"• *Floating P&L:* `{'+' if total_floating_pnl >= 0 else ''}${total_floating_pnl:,.2f}`",
+            f"• *Total Ekuitas:* `${live_equity:,.2f}`",
+            f"• *P&L Hari Ini (Realized):* `{status.daily_pnl_pct:+.2f}%`",
+            f"• *Peak Drawdown:* `{status.peak_drawdown_pct:.2f}%` (Max limit: 15%)",
+            "━━━━━━━━━━━━━━━━━━━━━",
+        ]
+
+        if positions:
+            lines.append("📊 *POSISI TRADING AKTIF BERJALAN:*")
+            for p in positions:
+                icon = "🟢" if p.order_type == OrderType.BUY else "🔴"
+                pnl_icon = "🟢" if p.profit >= 0 else "🔴"
+                pips = (
+                    (p.current_price - p.open_price) / 0.0001
+                    if p.order_type == OrderType.BUY
+                    else (p.open_price - p.current_price) / 0.0001
+                )
+                lines.extend([
+                    f"• {icon} *#{p.ticket}* `{p.order_type.value} {p.volume:.2f} lot {p.symbol}`",
+                    f"  - Entry: `{p.open_price:.5f}` | Sekarang: `{p.current_price:.5f}`",
+                    f"  - SL: `{p.sl:.5f}` | TP: `{p.tp:.5f}`",
+                    f"  - Floating: {pnl_icon} `{'+' if p.profit >= 0 else ''}${p.profit:,.2f}` (`{pips:+.1f} pips`)",
+                ])
+        else:
+            lines.append("📊 *POSISI AKTIF:* `Tidak ada posisi terbuka (Standby)`")
+
+        lines.extend([
+            "━━━━━━━━━━━━━━━━━━━━━",
+            f"• *Catatan:* _{status.reason}_",
+        ])
+
+        self.send_reply(chat_id, "\n".join(lines))
+
 
     def _handle_check(self, chat_id: str | int) -> None:
         self.send_reply(chat_id, "⏳ *Sedang menganalisis candle EUR/USD terkini...*")

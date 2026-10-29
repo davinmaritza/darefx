@@ -14,8 +14,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -89,7 +91,11 @@ class OrderResult:
 class MT5Bridge:
     """Bridge adapter mediating communication with MetaTrader 5 terminal."""
 
-    def __init__(self, credentials: MT5Credentials | None = None) -> None:
+    def __init__(
+        self,
+        credentials: MT5Credentials | None = None,
+        state_file: str | Path | None = None,
+    ) -> None:
         if credentials is None:
             # Attempt to read from environment variables
             login = int(os.getenv("MT5_LOGIN", "0"))
@@ -104,13 +110,81 @@ class MT5Bridge:
                 path=path,
                 simulation_mode=simulation,
             )
+            default_path = os.getenv("SIMULATED_STATE_FILE", "data/simulated_positions.json")
+            self._state_file: Path | None = Path(state_file) if state_file else Path(default_path)
         else:
             self.credentials = credentials
+            if state_file is not None:
+                self._state_file = Path(state_file)
+            elif os.getenv("SIMULATED_STATE_FILE"):
+                self._state_file = Path(os.environ["SIMULATED_STATE_FILE"])
+            else:
+                self._state_file = None
 
         self._connected = False
         self._simulated_positions: dict[int, Position] = {}
         self._ticket_counter = 100_001
         self._simulated_balance = 10_000.0
+        self._load_simulated_state()
+
+    def _load_simulated_state(self) -> None:
+        """Load simulated positions and balance from disk."""
+        if not self._state_file or not self._state_file.exists():
+            return
+        try:
+            with open(self._state_file, "r") as f:
+                data = json.load(f)
+            self._simulated_balance = float(data.get("balance", 10_000.0))
+            self._ticket_counter = int(data.get("next_ticket", 100_001))
+            pos_list = data.get("positions", [])
+            self._simulated_positions = {}
+            for p in pos_list:
+                pos = Position(
+                    ticket=int(p["ticket"]),
+                    symbol=p["symbol"],
+                    order_type=OrderType(p["order_type"]),
+                    volume=float(p["volume"]),
+                    open_price=float(p["open_price"]),
+                    current_price=float(p.get("current_price", p["open_price"])),
+                    sl=float(p["sl"]),
+                    tp=float(p["tp"]),
+                    profit=float(p.get("profit", 0.0)),
+                    open_time=datetime.fromisoformat(p["open_time"]),
+                )
+                self._simulated_positions[pos.ticket] = pos
+        except Exception as err:
+            logger.warning("Failed to load simulated state: %s", err)
+
+    def _save_simulated_state(self) -> None:
+        """Persist simulated positions and balance to disk."""
+        if not self._state_file:
+            return
+        try:
+            self._state_file.parent.mkdir(parents=True, exist_ok=True)
+            pos_list = [
+                {
+                    "ticket": p.ticket,
+                    "symbol": p.symbol,
+                    "order_type": p.order_type.value,
+                    "volume": p.volume,
+                    "open_price": p.open_price,
+                    "current_price": p.current_price,
+                    "sl": p.sl,
+                    "tp": p.tp,
+                    "profit": p.profit,
+                    "open_time": p.open_time.isoformat(),
+                }
+                for p in self._simulated_positions.values()
+            ]
+            data = {
+                "balance": self._simulated_balance,
+                "next_ticket": self._ticket_counter,
+                "positions": pos_list,
+            }
+            with open(self._state_file, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as err:
+            logger.warning("Failed to save simulated state: %s", err)
 
     @property
     def is_connected(self) -> bool:
@@ -203,10 +277,18 @@ class MT5Bridge:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
 
         if not HAS_MT5_PACKAGE or self.credentials.simulation_mode:
+            self._load_simulated_state()
             positions = list(self._simulated_positions.values())
+            for p in positions:
+                if p.order_type == OrderType.BUY:
+                    pips = (p.current_price - p.open_price) / 0.0001
+                else:
+                    pips = (p.open_price - p.current_price) / 0.0001
+                p.profit = pips * 10.0 * p.volume
             if symbol:
                 positions = [p for p in positions if p.symbol.upper() == symbol.upper()]
             return positions
+
 
         mt5_positions = mt5.positions_get(symbol=symbol) if symbol else mt5.positions_get()
         if mt5_positions is None:
@@ -266,6 +348,7 @@ class MT5Bridge:
                 open_time=datetime.now(timezone.utc),
             )
             self._simulated_positions[ticket] = pos
+            self._save_simulated_state()
             logger.info("[SIMULATION] Executed %s %s %.2f lots @ %.5f (SL: %.5f, TP: %.5f) Ticket: #%d",
                         action_enum.value, symbol, volume, exec_price, sl, tp, ticket)
             return OrderResult(
@@ -336,6 +419,7 @@ class MT5Bridge:
             pnl_pips = (exit_price - pos.open_price) * 10_000 if pos.order_type == OrderType.BUY else (pos.open_price - exit_price) * 10_000
             realized_pnl = pnl_pips * 10.0 * pos.volume
             self._simulated_balance += realized_pnl
+            self._save_simulated_state()
 
             logger.info("[SIMULATION] Closed ticket #%d %s @ %.5f (PnL: $%.2f)",
                         ticket, pos.symbol, exit_price, realized_pnl)
