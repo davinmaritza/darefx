@@ -1,9 +1,9 @@
 # DareFX
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![Tests Passing](https://img.shields.io/badge/tests-45%20passed-brightgreen.svg)]()
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Quantitative Finance](https://img.shields.io/badge/Quant-Lopez%20de%20Prado-orange.svg)]()
+[![CI Workflow](https://img.shields.io/badge/tests-45%20passed-brightgreen.svg)](https://github.com/davinmaritza/darefx/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/davinmaritza/darefx/blob/main/LICENSE)
+[![Quantitative Finance](https://img.shields.io/badge/quant-López%20de%20Prado-orange.svg)](https://github.com/davinmaritza/darefx/blob/main/docs/ARCHITECTURE.md)
 
 **DareFX** is an institutional-grade, autonomous machine learning auto-trading engine engineered for daily swing trading on the EUR/USD forex currency pair.
 
@@ -17,7 +17,7 @@ Tested over 4,519 daily market bars under realistic execution friction (1.5 pips
 
 | Performance Metric | Backtest Value | Target Benchmark | Status |
 | :--- | :--- | :--- | :--- |
-| **Total Net Return** | **+30.31%** ($10k $\rightarrow$ $13,031.33) | > 0.00% | **PASS** |
+| **Total Net Return** | **+30.31%** ($10k → $13,031.33) | > 0.00% | **PASS** |
 | **Win Rate** | **57.14%** (84 wins / 63 losses) | > 50.00% | **PASS** |
 | **Profit Factor** | **1.50** | > 1.30 | **PASS** |
 | **Sharpe Ratio (Annualized)** | **2.95** | > 0.50 (Phase 3 Gate) | **PASS** |
@@ -105,7 +105,7 @@ darefx evaluate --symbol EURUSD --trials 35
 ### 6. Run Daily Autonomous Trading Cycle
 ```bash
 # Simulation / Paper mode
-darefx run-cycle --symbol EURUSD --equity 10000 --dry-run
+darefx run-cycle --symbol EURUSD --equity 10000
 
 # Live / Paper Execution via MT5 Bridge
 darefx run-cycle --symbol EURUSD --equity 10000 --execute
