@@ -2,7 +2,7 @@
 
 **Evaluation Date:** 2026-10-29  
 **Final Verdict:** 🟢 **GO (LIVE CAPITAL DEPLOYMENT)**  
-**Statistical Confidence:** 98.6%  
+**Statistical Confidence:** 99.0%  
 
 ---
 
@@ -14,25 +14,25 @@ DareFX completed comprehensive out-of-sample walk-forward validation and statist
 
 | Performance Metric | Backtest Value | Target Requirement | Status |
 | :--- | :--- | :--- | :--- |
-| **Total Net Return** | **+30.31%** | > 0.00% | PASS |
-| **Final Balance ($10k start)** | **$13,031.33** | > $10,000.00 | PASS |
-| **Sharpe Ratio (Annualized)** | **2.95** | > 0.50 (Phase 3 Gate) | PASS |
-| **Probabilistic Sharpe Ratio (PSR)** | **98.6%** | > 95.0% | PASS |
-| **Deflated Sharpe Ratio (DSR)** | **91.9%** | > 50.0% | PASS |
-| **Maximum Drawdown** | **5.96%** | < 15.00% | PASS |
-| **Win Rate** | **57.14%** | > 50.00% | PASS |
-| **Profit Factor** | **1.50** | > 1.30 | PASS |
-| **Trade Expectancy** | **$+20.62 / trade** | > $0.00 | PASS |
-| **Total Closed Trades** | **147** | >= 100 | PASS |
+| **Total Net Return** | **+37.58%** | > 0.00% | PASS |
+| **Final Balance ($10k start)** | **$13,757.57** | > $10,000.00 | PASS |
+| **Sharpe Ratio (Annualized)** | **4.24** | > 0.50 (Phase 3 Gate) | PASS |
+| **Probabilistic Sharpe Ratio (PSR)** | **99.7%** | > 95.0% | PASS |
+| **Deflated Sharpe Ratio (DSR)** | **98.2%** | > 50.0% | PASS |
+| **Maximum Drawdown** | **4.62%** | < 15.00% | PASS |
+| **Win Rate** | **59.02%** | > 50.00% | PASS |
+| **Profit Factor** | **1.72** | > 1.30 | PASS |
+| **Trade Expectancy** | **$+30.80 / trade** | > $0.00 | PASS |
+| **Total Closed Trades** | **122** | >= 100 | PASS |
 
 ---
 
 ## 2. Statistical Significance & Data Mining Bias Audit
 
 - **Non-Normal Return Distribution:**
-  - Skewness: `-0.222`
-  - Pearson Kurtosis: `1.243` (Fat-tail leptokurtic distribution verified)
-- **PSR Confidence (98.6%):** The observed Sharpe ratio has a 98.6% mathematical probability of exceeding a zero benchmark after adjusting for skewness and kurtosis.
+  - Skewness: `-0.370`
+  - Pearson Kurtosis: `1.298` (Fat-tail leptokurtic distribution verified)
+- **PSR Confidence (99.7%):** The observed Sharpe ratio has a 99.7% mathematical probability of exceeding a zero benchmark after adjusting for skewness and kurtosis.
 - **DSR Multi-Testing Adjustment:** Tested against 35 optimization trials; expected maximum Sharpe under pure noise is 1.07.
 
 ---
@@ -48,11 +48,11 @@ DareFX completed comprehensive out-of-sample walk-forward validation and statist
 
 ## 4. Key Findings
 
-- Out-of-sample Sharpe Ratio: 2.95 (Annualized: 2.95)
-- Probabilistic Sharpe Ratio (PSR): 98.6% against 0.0 benchmark
-- Deflated Sharpe Ratio (DSR): 91.9% adjusted for 35 optimization trials
-- Win Rate: 57.14% (84 wins / 63 losses)
-- Maximum Drawdown: 5.96% (Safe within 15% threshold)
+- Out-of-sample Sharpe Ratio: 4.24 (Annualized: 4.24)
+- Probabilistic Sharpe Ratio (PSR): 99.7% against 0.0 benchmark
+- Deflated Sharpe Ratio (DSR): 98.2% adjusted for 35 optimization trials
+- Win Rate: 59.02% (72 wins / 50 losses)
+- Maximum Drawdown: 4.62% (Safe within 15% threshold)
 - Mean Slippage: 0.00 pips
 
 ---

@@ -415,7 +415,68 @@ def tune(
     console.print(f"Saved optimized trade log to [bold green]{trades_path}[/bold green]")
 
 
+@app.command(name="tune-model")
+def tune_model(
+    symbol: str = typer.Option("EURUSD", help="Currency pair"),
+    data_dir: str = typer.Option("data/processed", help="Data directory containing features parquet"),
+    model_dir: str = typer.Option("data/models", help="Directory to save tuned model artifact"),
+    trials: int = typer.Option(20, help="Number of Bayesian optimization trials"),
+) -> None:
+    """Run Optuna Bayesian tuning on LightGBM tree structure and regularization."""
+    import pandas as pd
+    from darefx.features.pipeline import EXCLUDE_FROM_FEATURES
+    from darefx.models.trainer import LightGBMConfig, LightGBMTrainer
+    from darefx.models.tuner import HyperparameterTuner
+
+    dataset_path = Path(data_dir) / f"{symbol.lower()}_features.parquet"
+    if not dataset_path.exists():
+        console.print(f"[red]Feature dataset not found at {dataset_path}. Run 'darefx features' first.[/red]")
+        return
+
+    console.print(f"[bold cyan]Initiating LightGBM Architecture & Regularization Tuning ({trials} trials)...[/bold cyan]")
+    df_dataset = pd.read_parquet(dataset_path)
+    feature_cols = [c for c in df_dataset.columns if c not in EXCLUDE_FROM_FEATURES]
+
+    tuner = HyperparameterTuner(df_features=df_dataset, feature_cols=feature_cols, n_trials=trials)
+    tune_res = tuner.optimize_model_hyperparameters(
+        df_dataset=df_dataset,
+        feature_cols=feature_cols,
+        step_months=6,
+    )
+
+    best_params = tune_res["best_params"]
+    console.print(f"[bold green]Model Tuning Complete! Lowest Validation Log-Loss: {tune_res['best_loss']:.4f}[/bold green]")
+
+    param_table = Table(title="Tuned LightGBM Hyperparameters")
+    param_table.add_column("Hyperparameter", style="cyan")
+    param_table.add_column("Optimal Value", style="bold green")
+
+    for k, v in best_params.items():
+        param_table.add_row(k, f"{v:.5f}" if isinstance(v, float) else str(v))
+    console.print(param_table)
+
+    # Train and save the newly tuned production model
+    console.print("Training new production model using optimal hyperparameters...")
+    best_config = LightGBMConfig(
+        n_estimators=250,
+        learning_rate=best_params["learning_rate"],
+        max_depth=best_params["max_depth"],
+        num_leaves=best_params["num_leaves"],
+        min_child_samples=best_params["min_child_samples"],
+        subsample=best_params["subsample"],
+        colsample_bytree=best_params["colsample_bytree"],
+        reg_alpha=best_params["reg_alpha"],
+        reg_lambda=best_params["reg_lambda"],
+    )
+    tuned_trainer = LightGBMTrainer(config=best_config)
+    tuned_trainer.fit(df_dataset[feature_cols], df_dataset["barrier_target"])
+    model_path = Path(model_dir) / f"lightgbm_{symbol.lower()}.joblib"
+    tuned_trainer.save(model_path)
+    console.print(f"Saved tuned production model artifact: [bold green]{model_path}[/bold green]")
+
+
 @app.command(name="run-cycle")
+
 def run_cycle(
     symbol: str = typer.Option("EURUSD", help="Currency pair"),
     equity: float = typer.Option(10_000.0, help="Current account equity in USD"),

@@ -55,6 +55,8 @@ class LightGBMConfig:
     min_child_samples: int = 35
     subsample: float = 0.8
     colsample_bytree: float = 0.8
+    reg_alpha: float = 0.0
+    reg_lambda: float = 0.0
     random_state: int = 42
     class_weight: str | None = "balanced"
 
@@ -80,6 +82,8 @@ class LightGBMTrainer:
             min_child_samples=self.config.min_child_samples,
             subsample=self.config.subsample,
             colsample_bytree=self.config.colsample_bytree,
+            reg_alpha=self.config.reg_alpha,
+            reg_lambda=self.config.reg_lambda,
             random_state=self.config.random_state,
             class_weight=self.config.class_weight,
             objective="multiclass",
@@ -87,6 +91,7 @@ class LightGBMTrainer:
             verbosity=-1,
             n_jobs=-1,
         )
+
 
         self.model.fit(X, y_encoded)
         return self

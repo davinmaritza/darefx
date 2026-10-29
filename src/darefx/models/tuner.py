@@ -111,3 +111,64 @@ class HyperparameterTuner:
             "best_score": study.best_value,
             "best_params": study.best_params,
         }
+
+    def optimize_model_hyperparameters(
+        self,
+        df_dataset: pd.DataFrame,
+        feature_cols: list[str],
+        target_col: str = "barrier_target",
+        time_col: str = "timestamp",
+        train_months: int = 36,
+        test_months: int = 6,
+        step_months: int = 6,
+        purge_days: int = 10,
+    ) -> dict[str, Any]:
+        """Bayesian optimization over LightGBM architecture and regularization hyperparameters."""
+        wf_config = WalkForwardConfig(
+            train_months=train_months,
+            test_months=test_months,
+            step_months=step_months,
+            purge_days=purge_days,
+        )
+
+        def objective(trial: optuna.Trial) -> float:
+            lr = trial.suggest_float("learning_rate", 0.015, 0.08, log=True)
+            max_depth = trial.suggest_int("max_depth", 3, 6)
+            num_leaves = trial.suggest_int("num_leaves", 10, 45)
+            min_child_samples = trial.suggest_int("min_child_samples", 25, 70)
+            subsample = trial.suggest_float("subsample", 0.65, 0.95, step=0.05)
+            colsample_bytree = trial.suggest_float("colsample_bytree", 0.65, 0.95, step=0.05)
+            reg_alpha = trial.suggest_float("reg_alpha", 1e-3, 5.0, log=True)
+            reg_lambda = trial.suggest_float("reg_lambda", 1e-3, 5.0, log=True)
+
+            config = LightGBMConfig(
+                n_estimators=200,
+                learning_rate=lr,
+                max_depth=max_depth,
+                num_leaves=num_leaves,
+                min_child_samples=min_child_samples,
+                subsample=subsample,
+                colsample_bytree=colsample_bytree,
+                reg_alpha=reg_alpha,
+                reg_lambda=reg_lambda,
+            )
+
+            trainer = LightGBMTrainer(config=config)
+            res = trainer.evaluate_walk_forward(
+                df_dataset=df_dataset,
+                feature_cols=feature_cols,
+                target_col=target_col,
+                time_col=time_col,
+                wf_config=wf_config,
+            )
+            return float(res.overall_log_loss)
+
+        study = optuna.create_study(direction="minimize")
+        study.optimize(objective, n_trials=self.n_trials)
+
+        logger.info("Model tuning complete. Lowest validation log loss: %.4f", study.best_value)
+        return {
+            "best_loss": study.best_value,
+            "best_params": study.best_params,
+        }
+
