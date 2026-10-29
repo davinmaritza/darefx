@@ -132,3 +132,55 @@ class TestLightGBMTrainer:
         assert not result.out_of_sample_df.empty
         assert "pred_label" in result.out_of_sample_df.columns
         assert "prob_buy" in result.out_of_sample_df.columns
+
+
+class TestXGBoostTrainer:
+    """Tests for XGBoost model training and serialization."""
+
+    def test_xgboost_fit_predict_save(self, synthetic_labeled_dataset, tmp_path: Path):
+        from darefx.models.trainer import XGBoostConfig, XGBoostTrainer
+
+        df, feature_cols = synthetic_labeled_dataset
+        X = df[feature_cols].iloc[:100]
+        y = df["barrier_target"].iloc[:100]
+
+        trainer = XGBoostTrainer(config=XGBoostConfig(n_estimators=10, max_depth=3))
+        trainer.fit(X, y)
+
+        probs = trainer.predict_proba(X)
+        assert np.allclose(probs.sum(axis=1), 1.0, atol=1e-5)
+
+        model_file = tmp_path / "xgb.pkl"
+        trainer.save(model_file)
+        assert model_file.exists()
+
+        loaded = XGBoostTrainer.load(model_file)
+        loaded_probs = loaded.predict_proba(X)
+        assert np.allclose(probs, loaded_probs, atol=1e-5)
+
+
+class TestHyperparameterTuner:
+    """Tests for Optuna hyperparameter optimization."""
+
+    def test_optimize_execution_policy(self, synthetic_labeled_dataset):
+        from darefx.models.tuner import HyperparameterTuner
+
+        df, feature_cols = synthetic_labeled_dataset
+        # Create minimal synthetic OOS DataFrame
+        df_oos = df.copy()
+        df_oos["open"] = df_oos["close"]
+        df_oos["high"] = df_oos["close"] + 0.0020
+        df_oos["low"] = df_oos["close"] - 0.0020
+        df_oos["prob_buy"] = np.random.uniform(0.2, 0.6, len(df))
+        df_oos["prob_sell"] = np.random.uniform(0.2, 0.6, len(df))
+        df_oos["prob_neutral"] = 1.0 - (df_oos["prob_buy"] + df_oos["prob_sell"]).clip(0, 0.9)
+        df_oos["atr_14"] = 0.0050
+        df_oos["adx_14"] = np.random.uniform(15.0, 35.0, len(df))
+
+        tuner = HyperparameterTuner(df_features=df_oos, feature_cols=feature_cols, n_trials=5)
+        res = tuner.optimize_execution_policy(df_oos=df_oos)
+
+        assert "best_score" in res
+        assert "best_params" in res
+        assert "threshold" in res["best_params"]
+

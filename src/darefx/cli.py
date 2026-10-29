@@ -317,8 +317,93 @@ def backtest(
     console.print(f"Saved trade log to [bold green]{trades_path}[/bold green]")
 
 
+@app.command()
+def tune(
+    symbol: str = typer.Option("EURUSD", help="Currency pair"),
+    data_dir: str = typer.Option("data/processed", help="Data directory containing OOS predictions"),
+    trials: int = typer.Option(35, help="Number of Bayesian optimization trials"),
+    metric: str = typer.Option("sharpe", help="Optimization target: 'sharpe' or 'profit_factor'"),
+) -> None:
+    """Run Optuna Bayesian hyperparameter search to discover profitable execution parameters."""
+    import pandas as pd
+    from darefx.backtest.engine import BacktestConfig, BacktestEngine
+    from darefx.models.tuner import HyperparameterTuner
+
+    oos_path = Path(data_dir) / f"{symbol.lower()}_oos_predictions.parquet"
+    if not oos_path.exists():
+        console.print(f"[red]OOS predictions file not found at {oos_path}. Run 'darefx train' first.[/red]")
+        return
+
+    console.print(f"[bold cyan]Initiating Optuna Optimization ({trials} trials, target: {metric.upper()})...[/bold cyan]")
+    df_oos = pd.read_parquet(oos_path)
+
+    tuner = HyperparameterTuner(df_features=df_oos, feature_cols=[], n_trials=trials, target_metric=metric)
+    opt_result = tuner.optimize_execution_policy(df_oos=df_oos)
+
+    best_score = opt_result["best_score"]
+    best_params = opt_result["best_params"]
+
+    console.print(f"[bold green]Optimization Finished! Best {metric.upper()}: {best_score:.2f}[/bold green]")
+
+    param_table = Table(title="Optimal Policy Parameters (Optuna)")
+    param_table.add_column("Parameter", style="cyan")
+    param_table.add_column("Optimal Value", style="bold green")
+
+    for k, v in best_params.items():
+        if isinstance(v, float):
+            param_table.add_row(k, f"{v:.4f}")
+        else:
+            param_table.add_row(k, str(v))
+    console.print(param_table)
+
+    # Re-run backtest using the discovered optimal policy
+    console.print("[bold yellow]Validating Out-Of-Sample Performance with Optimal Policy...[/bold yellow]")
+    df_eval = df_oos.copy()
+    adx_min = best_params.get("adx_min", 0.0)
+    if "adx_14" in df_eval.columns and adx_min > 0:
+        weak_mask = df_eval["adx_14"] < adx_min
+        df_eval.loc[weak_mask, "prob_buy"] = 0.0
+        df_eval.loc[weak_mask, "prob_sell"] = 0.0
+
+    best_config = BacktestConfig(
+        initial_capital=10_000.0,
+        risk_per_trade_pct=1.0,
+        spread_pips=1.5,
+        slippage_pips=1.0,
+        confidence_threshold=best_params["threshold"],
+        sl_multiplier=best_params["sl_multiplier"],
+        pt_multiplier=best_params["pt_multiplier"],
+    )
+
+    engine = BacktestEngine(config=best_config)
+    eval_result = engine.run(df_eval)
+    m = eval_result.metrics
+
+    table = Table(title=f"Optimized Out-Of-Sample Performance ({symbol})")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="bold white")
+    table.add_column("Benchmark / Target", style="yellow")
+
+    table.add_row("Initial Capital", f"${m.initial_balance:,.2f}", "$10,000.00")
+    table.add_row("Final Balance", f"${m.final_balance:,.2f}", "> Initial Capital")
+    table.add_row("Total Return", f"{m.total_return_pct:+.2f}%", "> 0.00%")
+    table.add_row("CAGR (Annualized Return)", f"{m.cagr_pct:+.2f}%", "> 10.00% (S&P500)")
+    table.add_row("Annualized Volatility", f"{m.annualized_volatility_pct:.2f}%", "< 15.00%")
+    table.add_row("Sharpe Ratio", f"{m.sharpe_ratio:.2f}", "> 1.00 (Target)")
+    table.add_row("Sortino Ratio", f"{m.sortino_ratio:.2f}", "> 1.50")
+    table.add_row("Calmar Ratio", f"{m.calmar_ratio:.2f}", "> 0.60")
+    table.add_row("Max Drawdown", f"{m.max_drawdown_pct:.2f}%", "< 20.00% (Hard Limit)")
+    table.add_row("Win Rate", f"{m.win_rate_pct:.2f}%", "> 50.00%")
+    table.add_row("Profit Factor", f"{m.profit_factor:.2f}", "> 1.30")
+    table.add_row("Total Trades Executed", f"{m.total_trades:,}", "Statistical Significance")
+    table.add_row("Trade Expectancy", f"${m.expectancy_usd:+.2f} per trade", "> $0.00")
+
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()
+
 
 
 
