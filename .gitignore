@@ -10,6 +10,7 @@ build/
 data/raw/
 data/processed/
 data/models/
+data/*.json
 
 # Environment
 .env

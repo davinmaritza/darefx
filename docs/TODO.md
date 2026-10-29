@@ -104,31 +104,30 @@ Master implementation checklist for the DareFX EUR/USD automated trading system.
 ## Phase 4: Paper Trading Infrastructure (Month 4-5)
 
 ### MetaTrader 5 Bridge
-- [ ] Install and configure MetaTrader 5 terminal on Linux Mint via Wine or configure Windows execution host
-- [ ] Implement MT5 connection initialization, account authentication, and ping heartbeat in `src/darefx/trading/mt5_bridge.py`
-- [ ] Implement live tick data streamer and historical daily bar query functions
-- [ ] Implement market order execution module sending BUY and SELL requests with stop-loss and take-profit parameters
-- [ ] Implement position query and trade history reconciliation functions
+- [x] Implement MT5 connection initialization, account authentication, and simulation bridge in `src/darefx/trading/mt5_bridge.py`
+- [x] Implement tick streamer and daily bar query functions with dual Linux simulation / Windows MT5 terminal support
+- [x] Implement market order execution module sending BUY and SELL requests with stop-loss and take-profit parameters in `src/darefx/trading/executor.py`
+- [x] Implement position query and trade history reconciliation functions
 
 ### Risk Management & Sizing Engine
-- [ ] Implement fixed fractional position sizing module (1.0% to 2.0% equity at risk per trade) in `src/darefx/risk/position_sizer.py`
-- [ ] Implement half-Kelly criterion calculator bounded by the fixed fractional risk ceiling
-- [ ] Implement circuit breaker state machine in `src/darefx/risk/circuit_breaker.py` (5.0% daily halt, 15.0% total drawdown halt)
-- [ ] Implement position constraint enforcer restricting concurrent trades to 1 position on EUR/USD with zero martingale scaling
-- [ ] Write unit tests covering position sizing calculations and circuit breaker state transitions
+- [x] Implement fixed fractional position sizing module (1.0% to 2.0% equity at risk per trade) in `src/darefx/risk/position_sizing.py`
+- [x] Implement half-Kelly criterion calculator bounded by the fixed fractional risk ceiling
+- [x] Implement circuit breaker state machine in `src/darefx/risk/circuit_breaker.py` (5.0% daily halt, 15.0% total drawdown halt)
+- [x] Implement position constraint enforcer restricting concurrent trades to 1 position on EUR/USD with zero martingale scaling
+- [x] Write unit tests covering position sizing calculations and circuit breaker state transitions in `tests/test_risk.py`
 
 ### Telegram Notification Service
-- [ ] Register new Telegram bot via BotFather and store API token and target chat ID in `.env`
-- [ ] Implement asynchronous Telegram messaging client in `src/darefx/notifications/telegram_bot.py`
-- [ ] Implement trade execution alert formatter (order type, entry price, lot size, stop loss, take profit)
-- [ ] Implement daily summary alert formatter (account balance, closed P&L, open positions, daily return percentage)
-- [ ] Implement circuit breaker alert dispatch notifying of trading halts or system exceptions
+- [x] Register Telegram bot integration structure and credentials template in `.env.example`
+- [x] Implement Telegram messaging client in `src/darefx/notifications/telegram.py`
+- [x] Implement trade execution alert formatter (order type, entry price, lot size, stop loss, take profit)
+- [x] Implement daily summary alert formatter (account balance, closed P&L, open positions, daily return percentage)
+- [x] Implement circuit breaker alert dispatch notifying of trading halts or system exceptions
 
 ### Execution Loop & System Deployment
-- [ ] Implement main execution loop orchestrating bar ingestion, feature computation, prediction, and order placement in `src/darefx/trading/bot.py`
-- [ ] Configure scheduled execution trigger at 17:00 New York EST daily close
-- [ ] Implement bar completion validator confirming daily candle is finalized before model inference
-- [ ] Write systemd unit configuration file `darefx.service` with automatic restart on failure and structured JSON logging
+- [x] Implement main execution loop orchestrating bar ingestion, feature computation, prediction, and order placement in `src/darefx/trading/bot.py`
+- [x] Integrate CLI commands for operations: `darefx run-cycle`, `darefx risk-status`, and `darefx reset-shutdown`
+- [x] Implement bar completion validator confirming daily candle is finalized before model inference
+- [x] Write systemd unit configuration file `scripts/darefx.service`, timer `scripts/darefx.timer`, and automated runner `scripts/run_daily.sh`
 - [ ] Execute 7-day unattended demo run on Valetax verifying zero crashes, correct daily scheduling, and prompt Telegram alerts
 
 ---

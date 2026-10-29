@@ -1,0 +1,12 @@
+[Unit]
+Description=DareFX Forex Daily Autonomous Cycle
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/suzirz/Documents/antigravity/gallant-hawking
+ExecStart=/home/suzirz/Documents/antigravity/gallant-hawking/scripts/run_daily.sh
+StandardOutput=journal
+StandardError=journal
+EnvironmentFile=-/home/suzirz/Documents/antigravity/gallant-hawking/.env

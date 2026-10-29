@@ -401,6 +401,85 @@ def tune(
     console.print(table)
 
 
+@app.command(name="run-cycle")
+def run_cycle(
+    symbol: str = typer.Option("EURUSD", help="Currency pair"),
+    equity: float = typer.Option(10_000.0, help="Current account equity in USD"),
+    threshold: float = typer.Option(0.46, help="Confidence threshold"),
+    adx_min: float = typer.Option(32.0, help="Minimum ADX trend strength"),
+    risk_pct: float = typer.Option(1.0, help="Risk per trade in percent"),
+    execute: bool = typer.Option(False, "--execute", help="Execute order via MT5 Bridge (paper/live)"),
+) -> None:
+    """Run a single daily trading cycle: ingest, feature extraction, ML inference, and alert."""
+    from darefx.trading.bot import BotConfig, TradingBot
+
+    mode_label = "[bold red]LIVE / PAPER EXECUTION[/bold red]" if execute else "[bold cyan]SIMULATION / ALERT ONLY[/bold cyan]"
+    console.print(f"[bold cyan]Initiating DareFX Daily Trading Cycle for {symbol} ({mode_label})...[/bold cyan]")
+
+    config = BotConfig(
+        symbol=symbol,
+        confidence_threshold=threshold,
+        adx_min=adx_min,
+        risk_pct=risk_pct,
+        execute_orders=execute,
+    )
+    bot = TradingBot(config=config)
+    result = bot.run_daily_cycle(current_equity=equity)
+
+    status = result.get("status")
+    if status == "signal_dispatched":
+        action = result["action"]
+        color = "green" if action == "BUY" else "red"
+        console.print(f"[{color}]SIGNAL GENERATED: {action} {result['lots']:.2f} lots @ {result['entry_price']:.5f}[/{color}]")
+        console.print(f"Stop Loss: [red]{result['stop_loss']:.5f}[/red] | Take Profit: [green]{result['take_profit']:.5f}[/green]")
+        console.print(f"Confidence: [cyan]{result['confidence'] * 100:.1f}%[/cyan] | ADX: [yellow]{result['adx']:.1f}[/yellow]")
+        if execute:
+            console.print(f"Order Ticket: [bold white]#{result.get('ticket')}[/bold white] (Status: {result.get('execution_status')})")
+    elif status == "filtered_by_regime":
+        console.print(f"[yellow]Trade filtered by regime: {result.get('reason')}[/yellow]")
+    elif status == "no_signal":
+        console.print(f"[white]No trade signal generated: {result.get('reason')}[/white]")
+    elif status == "blocked_by_circuit_breaker":
+        console.print(f"[bold red]CIRCUIT BREAKER BLOCKED TRADE: {result.get('reason')}[/bold red]")
+    else:
+        console.print(f"[red]Execution status: {result}[/red]")
+
+
+@app.command(name="risk-status")
+def risk_status() -> None:
+    """Inspect the current state and capital drawdowns of the DareFX Circuit Breaker."""
+    from darefx.risk.circuit_breaker import CircuitBreaker, CircuitState
+
+    cb = CircuitBreaker()
+    status = cb.update(current_equity=cb.current_equity, current_date_str=cb.last_trade_date or "N/A")
+
+    state_color = "green" if status.state == CircuitState.ACTIVE else "yellow" if status.state == CircuitState.PAUSED_DAILY else "red"
+
+    table = Table(title="DareFX Circuit Breaker Capital Protection Status")
+    table.add_column("Parameter", style="cyan")
+    table.add_column("Value", style="bold white")
+
+    table.add_row("Circuit State", f"[{state_color}]{status.state.value}[/{state_color}]")
+    table.add_row("Current Equity", f"${status.current_equity:,.2f}")
+    table.add_row("Peak Equity", f"${status.peak_equity:,.2f}")
+    table.add_row("Daily Open Equity", f"${status.daily_open_equity:,.2f}")
+    table.add_row("Daily P&L %", f"{status.daily_pnl_pct:+.2f}%")
+    table.add_row("Peak Drawdown %", f"{status.peak_drawdown_pct:.2f}%")
+    table.add_row("Active Reason / Note", status.reason)
+
+    console.print(table)
+
+
+@app.command(name="reset-shutdown")
+def reset_shutdown() -> None:
+    """Manually clear SHUTDOWN state and restore Circuit Breaker to ACTIVE."""
+    from darefx.risk.circuit_breaker import CircuitBreaker
+
+    cb = CircuitBreaker()
+    cb.reset_shutdown()
+    console.print("[bold green]Circuit Breaker successfully reset to ACTIVE state.[/bold green]")
+
+
 if __name__ == "__main__":
     app()
 

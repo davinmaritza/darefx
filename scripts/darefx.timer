@@ -1,0 +1,9 @@
+[Unit]
+Description=Trigger DareFX daily cycle after New York 17:00 EST close
+
+[Timer]
+OnCalendar=Mon..Fri 22:05:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
