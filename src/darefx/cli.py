@@ -160,6 +160,165 @@ def features(
     console.print(f"Saved dataset: [bold green]{data_dir}/{symbol.lower()}_features.parquet[/bold green]")
 
 
+@app.command()
+def train(
+    symbol: str = typer.Option("EURUSD", help="Currency pair"),
+    data_dir: str = typer.Option("data/processed", help="Data directory containing features parquet"),
+    model_dir: str = typer.Option("data/models", help="Directory to save trained model artifact"),
+    train_months: int = typer.Option(36, help="Walk-forward training window in months"),
+    test_months: int = typer.Option(6, help="Walk-forward testing window in months"),
+    step_months: int = typer.Option(3, help="Walk-forward step in months"),
+    purge_days: int = typer.Option(10, help="Purge gap in calendar days"),
+) -> None:
+    """Execute Walk-Forward evaluation and train production LightGBM model."""
+    import pandas as pd
+    from darefx.features.pipeline import EXCLUDE_FROM_FEATURES
+    from darefx.models.trainer import LightGBMConfig, LightGBMTrainer
+    from darefx.models.validator import WalkForwardConfig
+
+    dataset_path = Path(data_dir) / f"{symbol.lower()}_features.parquet"
+    if not dataset_path.exists():
+        console.print(f"[red]Feature dataset not found at {dataset_path}. Run 'darefx features' first.[/red]")
+        return
+
+    console.print(f"[bold cyan]Loading features for {symbol} from {dataset_path}...[/bold cyan]")
+    df_dataset = pd.read_parquet(dataset_path)
+
+    feature_cols = [c for c in df_dataset.columns if c not in EXCLUDE_FROM_FEATURES]
+    console.print(f"Dataset: [green]{len(df_dataset):,}[/green] samples x [green]{len(feature_cols)}[/green] features.")
+
+    wf_config = WalkForwardConfig(
+        train_months=train_months,
+        test_months=test_months,
+        step_months=step_months,
+        purge_days=purge_days,
+    )
+
+    console.print(f"[bold yellow]Executing Purged Walk-Forward Cross-Validation ({train_months}m Train / {test_months}m Test / {step_months}m Step)...[/bold yellow]")
+
+    trainer = LightGBMTrainer(config=LightGBMConfig())
+    result = trainer.evaluate_walk_forward(
+        df_dataset=df_dataset,
+        feature_cols=feature_cols,
+        target_col="barrier_target",
+        time_col="timestamp",
+        wf_config=wf_config,
+    )
+
+    console.print(f"[bold green]Walk-Forward Completed across {result.num_folds} folds![/bold green]")
+    console.print(f"Total Out-Of-Sample Predictions: [cyan]{result.total_samples:,}[/cyan]")
+    console.print(f"Overall OOS Accuracy: [bold white]{result.overall_accuracy * 100:.2f}%[/bold white]")
+    console.print(f"Overall OOS Multi-LogLoss: [bold white]{result.overall_log_loss:.4f}[/bold white]")
+
+    # Classification breakdown
+    table = Table(title="Out-Of-Sample Classification Report")
+    table.add_column("Class", style="cyan")
+    table.add_column("Precision", style="white")
+    table.add_column("Recall", style="green")
+    table.add_column("F1-Score", style="magenta")
+    table.add_column("Support", style="yellow")
+
+    for class_name in ["Sell (-1)", "Neutral (0)", "Buy (+1)"]:
+        metrics = result.class_report.get(class_name, {})
+        table.add_row(
+            class_name,
+            f"{metrics.get('precision', 0.0) * 100:.2f}%",
+            f"{metrics.get('recall', 0.0) * 100:.2f}%",
+            f"{metrics.get('f1-score', 0.0):.4f}",
+            f"{metrics.get('support', 0):,}",
+        )
+    console.print(table)
+
+    # Top 10 feature importance
+    imp_table = Table(title="Top 10 Feature Importance (by Gain)")
+    imp_table.add_column("Rank", style="cyan")
+    imp_table.add_column("Feature", style="white")
+    imp_table.add_column("Importance Gain", style="green")
+
+    for rank, (_, row) in enumerate(result.feature_importance.head(10).iterrows(), 1):
+        imp_table.add_row(str(rank), str(row["feature"]), f"{row['importance_gain']:.2f}")
+    console.print(imp_table)
+
+    # Save OOS predictions
+    oos_out = Path(data_dir) / f"{symbol.lower()}_oos_predictions.parquet"
+    result.out_of_sample_df.to_parquet(oos_out, compression="snappy", index=False)
+    console.print(f"Saved OOS predictions: [bold green]{oos_out}[/bold green]")
+
+    # Train final full model for production
+    console.print("Training final production model on full dataset...")
+    final_trainer = LightGBMTrainer(config=LightGBMConfig())
+    final_trainer.fit(df_dataset[feature_cols], df_dataset["barrier_target"])
+    model_path = Path(model_dir) / f"lightgbm_{symbol.lower()}.joblib"
+    final_trainer.save(model_path)
+    console.print(f"Saved production model artifact: [bold green]{model_path}[/bold green]")
+
+
+@app.command()
+def backtest(
+    symbol: str = typer.Option("EURUSD", help="Currency pair"),
+    data_dir: str = typer.Option("data/processed", help="Data directory containing OOS predictions"),
+    capital: float = typer.Option(10_000.0, help="Initial account equity in USD"),
+    risk: float = typer.Option(1.0, help="Percent risk per trade (e.g. 1.0%)"),
+    spread: float = typer.Option(1.5, help="Round-trip spread in pips"),
+    slippage: float = typer.Option(1.0, help="Slippage in pips"),
+    threshold: float = typer.Option(0.40, help="Minimum probability threshold to enter trade"),
+) -> None:
+    """Run realistic out-of-sample backtest with transaction costs and fixed fractional risk."""
+    import pandas as pd
+    from darefx.backtest.engine import BacktestConfig, BacktestEngine
+
+    oos_path = Path(data_dir) / f"{symbol.lower()}_oos_predictions.parquet"
+    if not oos_path.exists():
+        console.print(f"[red]OOS predictions file not found at {oos_path}. Run 'darefx train' first.[/red]")
+        return
+
+    console.print(f"[bold cyan]Running Out-Of-Sample Backtest on {symbol}...[/bold cyan]")
+    df_oos = pd.read_parquet(oos_path)
+
+    config = BacktestConfig(
+        initial_capital=capital,
+        risk_per_trade_pct=risk,
+        spread_pips=spread,
+        slippage_pips=slippage,
+        confidence_threshold=threshold,
+    )
+
+    engine = BacktestEngine(config=config)
+    result = engine.run(df_oos)
+    m = result.metrics
+
+    table = Table(title=f"DareFX Out-Of-Sample Performance Summary ({symbol})")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="bold white")
+    table.add_column("Benchmark / Target", style="yellow")
+
+    table.add_row("Initial Capital", f"${m.initial_balance:,.2f}", "$10,000.00")
+    table.add_row("Final Balance", f"${m.final_balance:,.2f}", "> Initial Capital")
+    table.add_row("Total Return", f"{m.total_return_pct:+.2f}%", "> 0.00%")
+    table.add_row("CAGR (Annualized Return)", f"{m.cagr_pct:+.2f}%", "> 10.00% (S&P500)")
+    table.add_row("Annualized Volatility", f"{m.annualized_volatility_pct:.2f}%", "< 15.00%")
+    table.add_row("Sharpe Ratio", f"{m.sharpe_ratio:.2f}", "> 1.00 (Institutional Target)")
+    table.add_row("Sortino Ratio", f"{m.sortino_ratio:.2f}", "> 1.50")
+    table.add_row("Calmar Ratio", f"{m.calmar_ratio:.2f}", "> 0.60")
+    table.add_row("Max Drawdown", f"{m.max_drawdown_pct:.2f}%", "< 20.00% (Hard Limit)")
+    table.add_row("Max Drawdown Duration", f"{m.max_drawdown_duration_days} days", "-")
+    table.add_row("Win Rate", f"{m.win_rate_pct:.2f}%", "> 50.00%")
+    table.add_row("Profit Factor", f"{m.profit_factor:.2f}", "> 1.30")
+    table.add_row("Total Trades Executed", f"{m.total_trades:,}", "N >= 100 for significance")
+    table.add_row("Winning / Losing Trades", f"{m.winning_trades} / {m.losing_trades}", "-")
+    table.add_row("Avg Win / Avg Loss", f"${m.avg_win_usd:.2f} / ${m.avg_loss_usd:.2f}", "Win/Loss > 1.0")
+    table.add_row("Trade Expectancy", f"${m.expectancy_usd:+.2f} per trade", "> $0.00")
+
+    console.print(table)
+
+    # Save trades
+    trades_path = Path(data_dir) / f"{symbol.lower()}_backtest_trades.csv"
+    result.trade_log.to_csv(trades_path, index=False)
+    console.print(f"Saved trade log to [bold green]{trades_path}[/bold green]")
+
+
 if __name__ == "__main__":
     app()
+
+
 

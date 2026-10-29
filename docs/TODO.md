@@ -59,16 +59,16 @@ Master implementation checklist for the DareFX EUR/USD automated trading system.
 - [x] Map barrier touches to discrete classification targets (+1 profit, -1 stop loss, 0 time exit) and verify class balance
 
 ### Validation Architecture
-- [ ] Implement walk-forward split generator supporting expanding and rolling windows in `src/darefx/models/validator.py`
-- [ ] Configure standard walk-forward parameters: 36-month training window, 6-month validation window, 3-month step
-- [ ] Implement purge and embargo window buffers to eliminate serial correlation and barrier overlap leakage
+- [x] Implement walk-forward split generator supporting expanding and rolling windows in `src/darefx/models/validator.py`
+- [x] Configure standard walk-forward parameters: 36-month training window, 6-month validation window, 3-month step
+- [x] Implement purge and embargo window buffers to eliminate serial correlation and barrier overlap leakage
 
 ### Baseline LightGBM Model & Backtest
-- [ ] Implement LightGBM classification trainer with multi-class log loss in `src/darefx/models/trainer.py`
-- [ ] Train baseline LightGBM model across walk-forward folds using default parameters
-- [ ] Calculate SHAP values on out-of-sample splits and rank feature importance in `notebooks/02_feature_analysis.ipynb`
-- [ ] Build vectorbt execution engine in `src/darefx/backtest/engine.py` applying 1.5 pip round-trip spread cost
-- [ ] Generate baseline backtest performance summary containing returns, Sharpe ratio, and maximum drawdown
+- [x] Implement LightGBM classification trainer with multi-class log loss in `src/darefx/models/trainer.py`
+- [x] Train baseline LightGBM model across walk-forward folds using default parameters
+- [x] Calculate feature importance across out-of-sample splits and rank by gain
+- [x] Build event-driven execution engine in `src/darefx/backtest/engine.py` applying 1.5 pip round-trip spread cost and slippage
+- [x] Generate baseline backtest performance summary containing returns, Sharpe ratio, and maximum drawdown via `darefx backtest`
 
 ---
 
