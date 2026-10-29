@@ -51,10 +51,14 @@ class TelegramServer:
             "parse_mode": "Markdown",
         }
         if with_keyboard:
-            payload["reply_markup"] = json.dumps(MAIN_KEYBOARD)
+            payload["reply_markup"] = MAIN_KEYBOARD
 
         try:
             resp = requests.post(f"{self.base_url}/sendMessage", json=payload, timeout=15)
+            if resp.status_code != 200:
+                # Fallback to plain text if Markdown parsing error
+                payload.pop("parse_mode", None)
+                resp = requests.post(f"{self.base_url}/sendMessage", json=payload, timeout=15)
             return resp.status_code == 200
         except Exception as err:
             logger.error("Failed to send telegram reply: %s", err)
