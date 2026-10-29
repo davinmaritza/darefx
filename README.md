@@ -29,6 +29,10 @@ Tested over 4,519 daily market bars under realistic execution friction (1.5 pips
 
 Full statistical audit report available in [`docs/EVALUATION-REPORT.md`](docs/EVALUATION-REPORT.md).
 
+## System Architecture Flowchart
+
+![DareFX End-to-End System Architecture](docs/assets/architecture_flowchart.png)
+
 ---
 
 ## Key Architectural Highlights

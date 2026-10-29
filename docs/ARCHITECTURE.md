@@ -2,6 +2,9 @@
 
 DareFX operates as a sequential trading pipeline: data ingestion downloads and stores EUR/USD price bars, feature engineering calculates technical indicators, the labeling engine assigns triple barrier targets, supervised models predict trade direction, the signal generator converts predictions into buy, sell, or hold actions, the risk manager validates account thresholds and sizes positions, the execution engine places orders via MetaTrader 5, and the monitoring subsystem dispatches execution metrics and risk events to Telegram.
 
+## System Visual Architecture
+![DareFX Architecture Flowchart](assets/architecture_flowchart.png)
+
 ## Component Diagram
 
 ```mermaid
