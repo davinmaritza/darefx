@@ -3,70 +3,82 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "omniresearch"
+name = "darefx"
 version = "0.1.0"
-description = "Enterprise Autonomous Deep Research & Fact-Checked Intelligence Engine"
+description = "AI-powered EUR/USD forex auto-trading bot"
 readme = "README.md"
-requires-python = ">=3.10"
-license = "Apache-2.0"
-authors = [
-    { name = "Davin Maritza", email = "alfarrezald@gmail.com" }
-]
-keywords = [
-    "deep-research",
-    "autonomous-agents",
-    "langgraph",
-    "market-intelligence",
-    "fact-checking",
-    "enterprise-ai",
-    "multi-agent",
-    "research-agent"
-]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Information Technology",
-    "Intended Audience :: Financial and Insurance Industry",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-]
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{ name = "darefx" }]
+
 dependencies = [
-    "pydantic>=2.7.0",
-    "pydantic-settings>=2.2.0",
-    "langchain-core>=0.2.0",
-    "langgraph>=0.2.0",
-    "duckduckgo-search>=6.0.0",
-    "typer>=0.12.0",
-    "rich>=13.7.0",
-    "streamlit>=1.36.0",
-    "pymupdf>=1.24.0",
-    "python-docx>=1.1.0",
-    "reportlab>=4.2.0",
-    "httpx>=0.27.0",
-    "beautifulsoup4>=4.12.0",
-    "python-dotenv>=1.0.0",
+    # Data
+    "pandas>=2.2",
+    "pyarrow>=17.0",
+    "requests>=2.32",
+
+    # Technical indicators
+    "pandas-ta>=0.3.14b1",
+
+    # ML
+    "lightgbm>=4.5",
+    "xgboost>=2.1",
+    "scikit-learn>=1.5",
+    "optuna>=4.0",
+
+    # Backtesting
+    "vectorbt>=0.26",
+
+    # Notifications
+    "python-telegram-bot>=21.0",
+
+    # Visualization
+    "matplotlib>=3.9",
+    "plotly>=5.24",
+
+    # Config
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "python-dotenv>=1.0",
+
+    # CLI
+    "typer>=0.12",
+    "rich>=13.8",
 ]
 
 [project.optional-dependencies]
+mt5 = [
+    # Windows-only, install when needed for live trading
+    # "MetaTrader5>=5.0.4424",
+]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "ruff>=0.4.0",
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "pyright>=1.1",
+    "ipykernel>=6.29",
+    "jupyter>=1.1",
 ]
 
 [project.scripts]
-omniresearch = "omniresearch.cli:app"
+darefx = "darefx.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/omniresearch"]
+packages = ["src/darefx"]
 
 [tool.ruff]
+target-version = "py312"
 line-length = 100
-target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
-ignore = ["E501"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
 
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

@@ -1,52 +1,36 @@
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
+dist/
+build/
+.venv/
 
-# Virtual environments
+# Data (too large for git)
+data/raw/
+data/processed/
+data/models/
+
+# Environment
 .env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
 
-# Testing & Coverage
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Output directories & caches
-output/
-reports/
-data/cache/
-*.log
-
-# IDE files
+# IDE
 .vscode/
 .idea/
-*.swp
-*.swo
+
+# Testing
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MT5
+*.ex5
+*.ex4
