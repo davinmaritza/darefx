@@ -31,33 +31,32 @@ Master implementation checklist for the DareFX EUR/USD automated trading system.
 - [x] Benchmark Parquet read performance to verify 20+ years of daily data loads into memory in under 2 seconds
 
 ### Exploratory Data Analysis
-- [ ] Create Jupyter notebook `notebooks/01_data_exploration.ipynb`
-- [ ] Plot 2003–present EUR/USD daily price history with structural event markers (2008 GFC, 2015 SNB unpeg, 2020 COVID)
-- [ ] Compute and plot daily logarithmic return distribution against Gaussian reference curve
-- [ ] Calculate rolling 21-day, 63-day, and 252-day annualized volatility series
-- [ ] Calculate Autocorrelation (ACF) and Partial Autocorrelation (PACF) for raw returns and absolute returns
+- [x] Create Jupyter notebook `notebooks/01_data_exploration.ipynb`
+- [x] Plot 2003–present EUR/USD daily price history with structural event markers (2008 GFC, 2015 SNB unpeg, 2020 COVID)
+- [x] Compute and plot daily logarithmic return distribution against Gaussian reference curve
+- [x] Calculate rolling 21-day, 63-day, and 252-day annualized volatility series
+- [x] Calculate Autocorrelation (ACF) and Partial Autocorrelation (PACF) for raw returns and absolute returns
 
 ---
 
 ## Phase 2: Feature Engineering + First Model (Month 2)
 
 ### Technical Indicator Engineering
-- [ ] Implement momentum indicators in `src/darefx/features/indicators.py`: RSI (14), Stochastic (14, 3), and MACD (12, 26, 9)
-- [ ] Implement trend and volatility indicators: Bollinger Bands (20, 2), ATR (14), NATR, and ADX (14)
-- [ ] Implement moving averages (EMA 20, 50, 200) and moving average distance ratios
-- [ ] Implement volume indicator: On-Balance Volume (OBV) and rolling OBV slope
-- [ ] Write unit tests for all indicators verifying calculation accuracy against known reference values
+- [x] Implement momentum indicators in `src/darefx/features/technical.py`: RSI (14), Stochastic (14, 3), and MACD (12, 26, 9)
+- [x] Implement trend and volatility indicators: Bollinger Bands (20, 2), ATR (14), NATR, and ADX (14)
+- [x] Implement moving averages (EMA 9, 21, 50, 200) and moving average distance ratios
+- [x] Write unit tests for all indicators verifying calculation accuracy and boundary invariants in `tests/test_features.py`
 
 ### Feature Scaling & Pipeline
-- [ ] Implement rolling z-score normalizer with backward-looking window to prevent look-ahead bias in `src/darefx/features/scaler.py`
-- [ ] Implement feature assembly pipeline combining indicators into clean tabular matrices in `src/darefx/features/pipeline.py`
-- [ ] Write leakage verification test checking that timestamp T features contain zero information from timestamp T+1
+- [x] Implement rolling z-score normalizer with backward-looking window to prevent look-ahead bias in `src/darefx/features/technical.py`
+- [x] Implement feature assembly pipeline combining indicators into clean tabular matrices in `src/darefx/features/pipeline.py`
+- [x] Write leakage verification test checking that timestamp T features contain zero information from timestamp T+1
 
 ### Triple Barrier Labeling
-- [ ] Implement triple barrier labeling algorithm in `src/darefx/features/labeling.py`
-- [ ] Configure dynamic horizontal barriers using ATR volatility multipliers (1.5 * ATR for profit target and stop loss)
-- [ ] Configure vertical barrier enforcing maximum trade holding duration of 5 daily bars
-- [ ] Map barrier touches to discrete classification targets (+1 profit, -1 stop loss, 0 time exit) and verify class balance
+- [x] Implement triple barrier labeling algorithm in `src/darefx/features/labels.py`
+- [x] Configure dynamic horizontal barriers using ATR volatility multipliers (1.5 * ATR for profit target and stop loss)
+- [x] Configure vertical barrier enforcing maximum trade holding duration of 5 daily bars
+- [x] Map barrier touches to discrete classification targets (+1 profit, -1 stop loss, 0 time exit) and verify class balance
 
 ### Validation Architecture
 - [ ] Implement walk-forward split generator supporting expanding and rolling windows in `src/darefx/models/validator.py`

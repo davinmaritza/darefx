@@ -114,5 +114,52 @@ def info(
     console.print(f"Mean Close: [white]{df['close'].mean():.5f}[/white]")
 
 
+@app.command()
+def features(
+    symbol: str = typer.Option("EURUSD", help="Currency pair"),
+    data_dir: str = typer.Option("data/processed", help="Data directory"),
+    pt: float = typer.Option(1.5, help="Profit target multiplier (x ATR)"),
+    sl: float = typer.Option(1.5, help="Stop loss multiplier (x ATR)"),
+    holding: int = typer.Option(5, help="Max holding window in daily bars"),
+) -> None:
+    """Extract technical indicators and apply Triple Barrier labeling."""
+    from darefx.features.labels import TripleBarrierConfig
+    from darefx.features.pipeline import build_feature_dataset
+
+    console.print(f"[bold cyan]Building ML Feature Matrix for {symbol}...[/bold cyan]")
+    config = TripleBarrierConfig(pt_multiplier=pt, sl_multiplier=sl, max_holding_bars=holding)
+
+    try:
+        df_dataset, feature_names = build_feature_dataset(
+            symbol=symbol,
+            data_dir=data_dir,
+            config=config,
+            save_output=True,
+        )
+    except Exception as err:
+        console.print(f"[red]Error building features: {err}[/red]")
+        return
+
+    console.print(f"[bold green]Feature matrix generated successfully![/bold green]")
+    console.print(f"Total Samples: [cyan]{len(df_dataset):,}[/cyan]")
+    console.print(f"Total Engineered Features: [cyan]{len(feature_names)}[/cyan]")
+
+    target_counts = df_dataset["barrier_target"].value_counts()
+    table = Table(title="Triple Barrier Target Distribution")
+    table.add_column("Target Class", style="cyan")
+    table.add_column("Label Name", style="white")
+    table.add_column("Count", style="green")
+    table.add_column("Percentage", style="magenta")
+
+    names = {1: "Profit Target Touched (+1)", -1: "Stop Loss Touched (-1)", 0: "Vertical Barrier Expired (0)"}
+    for label, count in target_counts.items():
+        pct = (count / len(df_dataset)) * 100.0
+        table.add_row(str(label), names.get(label, "Unknown"), f"{count:,}", f"{pct:.2f}%")
+
+    console.print(table)
+    console.print(f"Saved dataset: [bold green]{data_dir}/{symbol.lower()}_features.parquet[/bold green]")
+
+
 if __name__ == "__main__":
     app()
+
