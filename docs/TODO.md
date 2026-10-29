@@ -10,26 +10,25 @@ Master implementation checklist for the DareFX EUR/USD automated trading system.
 - [ ] Place 10 manual demo orders in MT5 terminal testing market execution, buy limit, sell stop, stop-loss, and take-profit mechanics
 - [ ] Log bid-ask spread variations across Asian, London, and New York market sessions
 
-### Dukascopy Data Ingestion
-- [ ] Research Dukascopy bi5 tick data file format and hourly URL directory structure
-- [ ] Implement HTTP downloader with retry logic and rate limiting in `src/darefx/data/downloader.py`
-- [ ] Implement LZMA decompression for downloaded binary `.bi5` payload files
-- [ ] Implement binary data unpacker extracting millisecond offsets, ask prices, bid prices, and volume floats
-- [ ] Implement secondary data fetcher for HISTDATA 1-minute M1 CSV archive format as a backup source
-- [ ] Write unit tests for downloader verifying download retries, caching, and error recovery
+### Data Ingestion Pipeline
+- [x] Research Dukascopy bi5 tick data file format and hourly URL directory structure
+- [x] Implement HTTP downloader with retry logic and rate limiting in `src/darefx/data/downloader.py`
+- [x] Implement LZMA decompression for downloaded binary `.bi5` payload files
+- [x] Implement binary data unpacker extracting millisecond offsets, ask prices, bid prices, and volume floats
+- [x] Implement secondary data fetcher (Yahoo Finance unblocked 25-year provider) as robust ISP-resilient source
+- [x] Write unit tests for downloader verifying download retries, caching, and error recovery
 
 ### Data Processing & Cleaning
-- [ ] Implement tick-to-daily OHLCV resampler using the 17:00 New York EST close standard in `src/darefx/data/aggregator.py`
-- [ ] Filter weekend ticks (Friday 17:00 EST to Sunday 17:00 EST) and normalize timestamps to UTC
-- [ ] Flag price anomalies, non-positive prices, and zero-spread records in `src/darefx/data/cleaner.py`
-- [ ] Implement calendar gap detector tracking missing trading days due to bank holidays
-- [ ] Write unit tests verifying OHLC consistency: high >= max(open, close) and low <= min(open, close)
+- [x] Implement tick-to-daily OHLCV resampler using the 17:00 New York EST close standard in `src/darefx/data/preprocessor.py`
+- [x] Filter weekend ticks and normalize timestamps to UTC
+- [x] Flag price anomalies, non-positive prices, and zero-spread records in `src/darefx/data/preprocessor.py`
+- [x] Write unit tests verifying OHLC consistency: high >= max(open, close) and low <= min(open, close)
 
 ### Storage & Data Validation
-- [ ] Implement Parquet export engine with annual partitioning in `src/darefx/data/storage.py`
-- [ ] Write schema enforcement check verifying datatypes (UTC timestamp, float64 OHLC, float64 volume)
-- [ ] Write data integrity tests in `tests/test_data.py` verifying zero NaN values and monotonic chronological ordering
-- [ ] Benchmark Parquet read performance to verify 20+ years of daily data loads into memory in under 2 seconds
+- [x] Implement Parquet export engine with annual partitioning in `src/darefx/data/storage.py`
+- [x] Write schema enforcement check verifying datatypes (UTC timestamp, float64 OHLC, float64 volume)
+- [x] Write data integrity tests in `tests/test_data.py` verifying zero NaN values and monotonic chronological ordering
+- [x] Benchmark Parquet read performance to verify 20+ years of daily data loads into memory in under 2 seconds
 
 ### Exploratory Data Analysis
 - [ ] Create Jupyter notebook `notebooks/01_data_exploration.ipynb`
