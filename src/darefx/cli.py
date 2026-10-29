@@ -549,6 +549,25 @@ def evaluate(
     console.print(f"\nSaved comprehensive evaluation report to: [bold green]{output_report}[/bold green]")
 
 
+@app.command(name="telegram-bot")
+def telegram_bot() -> None:
+    """Start the interactive Telegram Control Server listening for mobile commands and button taps."""
+    from darefx.notifications.telegram_server import TelegramServer
+
+    console.print("[bold cyan]Starting DareFX Interactive Telegram Control Server...[/bold cyan]")
+    server = TelegramServer()
+    if not server.bot_token or not server.allowed_chat_id:
+        console.print("[red]Error: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in .env[/red]")
+        return
+
+    console.print(f"[bold green]Connected! Listening for commands from Telegram Chat ID: {server.allowed_chat_id}[/bold green]")
+    console.print("[yellow]Press Ctrl+C to stop.[/yellow]")
+    try:
+        server.start_polling()
+    except KeyboardInterrupt:
+        console.print("[cyan]Telegram bot server stopped.[/cyan]")
+
+
 if __name__ == "__main__":
     app()
 

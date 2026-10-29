@@ -110,3 +110,17 @@ class TestTelegramNotifier:
         # Should return False cleanly without throwing an exception
         res = notifier.notify_trade_opened("BUY", "EURUSD", 0.10, 1.0850, 1.0800, 1.0950, 0.65)
         assert res is False
+
+
+class TestTelegramServer:
+    """Tests for interactive Telegram command server routing."""
+
+    def test_telegram_server_unauthorized_user(self):
+        from darefx.notifications.telegram_server import TelegramServer
+        server = TelegramServer(bot_token="test_token", chat_id="123456")
+        # Should reject unauthorized chat ID
+        server.handle_message("/status", sender_id="999999")
+        # Allowed chat ID routes without exception
+        server.handle_message("/start", sender_id="123456")
+        server.handle_message("/status", sender_id="123456")
+

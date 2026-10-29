@@ -27,8 +27,8 @@ class TelegramNotifier:
         chat_id: str | None = None,
         timeout_sec: int = 10,
     ) -> None:
-        self.bot_token = bot_token or os.getenv("TELEGRAM_BOT_TOKEN")
-        self.chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID")
+        self.bot_token = bot_token if bot_token is not None else os.getenv("TELEGRAM_BOT_TOKEN")
+        self.chat_id = chat_id if chat_id is not None else os.getenv("TELEGRAM_CHAT_ID")
         self.timeout_sec = timeout_sec
 
     def is_configured(self) -> bool:
