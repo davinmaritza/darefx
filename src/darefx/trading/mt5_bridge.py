@@ -46,6 +46,8 @@ class MT5Credentials:
     path: str = ""
     timeout: int = 60_000
     simulation_mode: bool = False
+    metaapi_token: str = ""
+    metaapi_account_id: str = ""
 
 
 @dataclass
@@ -103,12 +105,16 @@ class MT5Bridge:
             server = os.getenv("MT5_SERVER", "Valetax-Demo")
             path = os.getenv("MT5_PATH", "")
             simulation = os.getenv("MT5_SIMULATION", "true").lower() in ("1", "true", "yes")
+            metaapi_token = os.getenv("METAAPI_TOKEN", "")
+            metaapi_account_id = os.getenv("METAAPI_ACCOUNT_ID", "")
             self.credentials = MT5Credentials(
                 login=login,
                 password=password,
                 server=server,
                 path=path,
                 simulation_mode=simulation,
+                metaapi_token=metaapi_token,
+                metaapi_account_id=metaapi_account_id,
             )
             default_path = os.getenv("SIMULATED_STATE_FILE", "data/simulated_positions.json")
             self._state_file: Path | None = Path(state_file) if state_file else Path(default_path)
@@ -122,6 +128,19 @@ class MT5Bridge:
                 self._state_file = None
 
         self._connected = False
+        self._metaapi_bridge: Any = None
+
+        # Check if MetaApi cloud bridge should be utilized
+        m_tok = self.credentials.metaapi_token or os.getenv("METAAPI_TOKEN", "")
+        m_acc = self.credentials.metaapi_account_id or os.getenv("METAAPI_ACCOUNT_ID", "")
+        if not self.credentials.simulation_mode and m_tok and m_acc:
+            try:
+                from darefx.trading.metaapi_bridge import MetaApiBridge
+                self._metaapi_bridge = MetaApiBridge(token=m_tok, account_id=m_acc)
+                logger.info("Initialized MetaApi Cloud Bridge for MT5 account %s", m_acc)
+            except Exception as err:
+                logger.warning("Failed to initialize MetaApi bridge: %s", err)
+
         self._simulated_positions: dict[int, Position] = {}
         self._ticket_counter = 100_001
         self._simulated_balance = 10_000.0
@@ -193,6 +212,11 @@ class MT5Bridge:
 
     def connect(self) -> bool:
         """Initialize connection to MetaTrader 5."""
+        if self._metaapi_bridge:
+            logger.info("Connecting to MT5 broker via MetaApi Cloud Bridge...")
+            self._connected = self._metaapi_bridge.connect()
+            return self._connected
+
         if not HAS_MT5_PACKAGE or self.credentials.simulation_mode:
             logger.info("Initializing MT5Bridge in SIMULATION / PAPER mode (Linux native).")
             self._connected = True
@@ -228,6 +252,11 @@ class MT5Bridge:
 
     def disconnect(self) -> None:
         """Disconnect and terminate MT5 bridge session."""
+        if self._metaapi_bridge:
+            self._metaapi_bridge.disconnect()
+            self._connected = False
+            return
+
         if self._connected and HAS_MT5_PACKAGE and not self.credentials.simulation_mode:
             mt5.shutdown()
         self._connected = False
@@ -237,6 +266,9 @@ class MT5Bridge:
         """Fetch real-time account capital and margin statistics."""
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if self._metaapi_bridge:
+            return self._metaapi_bridge.get_account_info()
 
         if not HAS_MT5_PACKAGE or self.credentials.simulation_mode:
             # Return simulated paper account statistics
@@ -276,6 +308,9 @@ class MT5Bridge:
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
 
+        if self._metaapi_bridge:
+            return self._metaapi_bridge.get_positions(symbol=symbol)
+
         if not HAS_MT5_PACKAGE or self.credentials.simulation_mode:
             self._load_simulated_state()
             positions = list(self._simulated_positions.values())
@@ -288,7 +323,6 @@ class MT5Bridge:
             if symbol:
                 positions = [p for p in positions if p.symbol.upper() == symbol.upper()]
             return positions
-
 
         mt5_positions = mt5.positions_get(symbol=symbol) if symbol else mt5.positions_get()
         if mt5_positions is None:
@@ -327,6 +361,18 @@ class MT5Bridge:
         """Submit a protective market order with stop-loss and take-profit."""
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if self._metaapi_bridge:
+            return self._metaapi_bridge.send_market_order(
+                symbol=symbol,
+                action=action,
+                volume=volume,
+                sl=sl,
+                tp=tp,
+                current_price=current_price,
+                deviation_pips=deviation_pips,
+                comment=comment,
+            )
 
         action_enum = OrderType(action.upper()) if isinstance(action, str) else action
 
@@ -409,6 +455,9 @@ class MT5Bridge:
         """Close an active open position by ticket."""
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if self._metaapi_bridge:
+            return self._metaapi_bridge.close_position(ticket=ticket, close_price=close_price)
 
         if not HAS_MT5_PACKAGE or self.credentials.simulation_mode:
             if ticket not in self._simulated_positions:
