@@ -9,6 +9,7 @@ Provides an interactive mobile control center via Telegram:
 
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import os
@@ -38,6 +39,7 @@ class TelegramServer:
         self.autowatch_enabled = True
         self.autotrade_enabled = os.getenv("AUTO_TRADE", "true").lower() == "true"
         self.last_auto_check = 0.0
+        self.last_heartbeat_day: str = ""
 
     def get_keyboard(self) -> dict[str, Any]:
         """Generate interactive keyboard reflecting live Auto-Trade status."""
@@ -63,6 +65,7 @@ class TelegramServer:
             {"command": "status", "description": "Status akun, margin & proteksi modal"},
             {"command": "run", "description": "Eksekusi satu siklus trading ke broker"},
             {"command": "evaluate", "description": "Statistik performa & evaluasi kuantitatif"},
+            {"command": "heartbeat", "description": "Laporan harian status bot & broker"},
             {"command": "reset", "description": "Reset status sirkuit proteksi modal"},
             {"command": "help", "description": "Panduan & bantuan penggunaan bot"},
         ]
@@ -126,6 +129,8 @@ class TelegramServer:
             self._handle_autotrade(sender_id, cmd)
         elif cmd in ("/evaluate", "📈 rekor statistik"):
             self._handle_evaluate(sender_id)
+        elif cmd in ("/heartbeat", "/laporan", "laporan", "ping"):
+            self._handle_heartbeat(sender_id)
         elif cmd in ("/reset", "🛡️ reset sirkuit"):
             self._handle_reset(sender_id)
         elif cmd.startswith("/autowatch"):
@@ -397,6 +402,49 @@ class TelegramServer:
             "✅ *Circuit Breaker berhasil di-reset ke status ACTIVE.* Trading dapat berjalan normal kembali.",
         )
 
+    def _handle_heartbeat(self, chat_id: str | int) -> None:
+        """Send daily morning health check & operational report."""
+        if not chat_id:
+            return
+        try:
+            from darefx.trading.mt5_bridge import MT5Bridge
+            from darefx.risk.circuit_breaker import CircuitBreaker
+
+            bridge = MT5Bridge()
+            connected = False
+            balance = 0.0
+            equity = 0.0
+            server_name = "N/A"
+            try:
+                connected = bridge.connect()
+                if connected:
+                    acc_info = bridge.get_account_info()
+                    balance = acc_info.balance
+                    equity = acc_info.equity
+                    server_name = acc_info.server
+            except Exception as e:
+                logger.warning("MT5 heartbeat error: %s", e)
+
+            cb_status = CircuitBreaker().get_status()
+            autotrade_str = "🟢 AKTIF (AUTOPILOT)" if self.autotrade_enabled else "🔴 STANDBY (ALERT ONLY)"
+            mt5_str = f"🟢 Connected ({server_name})" if connected else "🔴 Disconnected"
+
+            msg = (
+                "🌅 *LAPORAN HARIAN DAREFX (07:00 WIB)* 🤖\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                f"• *Status Bot:* `{autotrade_str}`\n"
+                f"• *Koneksi MT5:* `{mt5_str}`\n"
+                f"• *Saldo Akun (Balance):* `${balance:,.2f}`\n"
+                f"• *Total Ekuitas:* `${equity:,.2f}`\n"
+                f"• *Proteksi Modal:* `{cb_status.state.value.upper()}` (Drawdown: {cb_status.peak_drawdown_pct:.1f}%)\n"
+                "━━━━━━━━━━━━━━━━━━━━━\n"
+                "Bot berjalan normal 24/7 di VM Windows Bytenodes."
+            )
+            self.send_reply(chat_id, msg)
+        except Exception as err:
+            logger.exception("Error during heartbeat: %s", err)
+            self.send_reply(chat_id, f"⚠️ Gagal mengirim laporan heartbeat: `{err}`")
+
     def _handle_autowatch(self, chat_id: str | int, cmd: str) -> None:
         parts = cmd.split()
         if len(parts) > 1 and parts[1] == "off":
@@ -515,6 +563,14 @@ class TelegramServer:
                 if self.autowatch_enabled and (now - self.last_auto_check >= auto_check_interval):
                     self.last_auto_check = now
                     threading.Thread(target=self.check_market_auto, daemon=True, name="DareFX-AutoCheck").start()
+
+                # Daily morning heartbeat at 07:00 WIB (UTC+7)
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                now_wib = now_utc + datetime.timedelta(hours=7)
+                today_wib = now_wib.strftime("%Y-%m-%d")
+                if now_wib.hour == 7 and self.last_heartbeat_day != today_wib:
+                    self.last_heartbeat_day = today_wib
+                    threading.Thread(target=self._handle_heartbeat, args=(self.allowed_chat_id,), daemon=True, name="DareFX-Heartbeat").start()
 
                 time.sleep(1)
             except KeyboardInterrupt:
