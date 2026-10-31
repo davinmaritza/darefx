@@ -107,6 +107,7 @@ class TelegramServer:
             return
 
         cmd = text.strip().lower()
+        logger.info("Received Telegram command from %s: '%s'", sender_id, text)
 
         if cmd in ("/start", "/help", "❓ bantuan"):
             self._handle_start(sender_id)
@@ -214,21 +215,37 @@ class TelegramServer:
 
         # Query open positions and live floating PnL
         bridge = MT5Bridge()
-        bridge.connect()
+        connected = False
         try:
-            positions = bridge.get_positions()
-        except Exception:
-            positions = []
+            connected = bridge.connect()
+        except Exception as e:
+            logger.warning("MT5 connect error: %s", e)
+
+        positions = []
+        if connected:
+            try:
+                positions = bridge.get_positions()
+            except Exception as e:
+                logger.warning("MT5 get_positions error: %s", e)
 
         total_floating_pnl = sum(p.profit for p in positions)
+        balance = status.current_equity
         live_equity = status.current_equity + total_floating_pnl
+
+        if connected:
+            try:
+                acc_info = bridge.get_account_info()
+                balance = acc_info.balance
+                live_equity = acc_info.equity
+            except Exception as e:
+                logger.warning("MT5 get_account_info error: %s", e)
 
         lines = [
             "🛡️ *STATUS OPERASIONAL & KEUANGAN DAREFX*",
             "━━━━━━━━━━━━━━━━━━━━━",
             f"• *Auto-Trade:* `{autotrade_str}`",
             f"• *Status Sirkuit:* `{state_icon}`",
-            f"• *Saldo Akun (Balance):* `${status.current_equity:,.2f}`",
+            f"• *Saldo Akun (Balance):* `${balance:,.2f}`",
             f"• *Floating P&L:* `{'+' if total_floating_pnl >= 0 else ''}${total_floating_pnl:,.2f}`",
             f"• *Total Ekuitas:* `${live_equity:,.2f}`",
             f"• *P&L Hari Ini (Realized):* `{status.daily_pnl_pct:+.2f}%`",
@@ -454,10 +471,11 @@ class TelegramServer:
         self.last_auto_check = time.time()
         logger.info("DareFX Telegram server polling started for chat ID %s...", self.allowed_chat_id)
 
-        # Run initial auto-check on startup if enabled
+        # Run initial auto-check on startup if enabled in background thread
         if self.autowatch_enabled:
-            logger.info("Executing startup autonomous market check...")
-            self.check_market_auto()
+            import threading
+            logger.info("Launching autonomous market check in background thread...")
+            threading.Thread(target=self.check_market_auto, daemon=True, name="DareFX-AutoCheck").start()
 
         while self.running:
             try:
@@ -467,7 +485,7 @@ class TelegramServer:
                 now = time.time()
                 if self.autowatch_enabled and (now - self.last_auto_check >= auto_check_interval):
                     self.last_auto_check = now
-                    self.check_market_auto()
+                    threading.Thread(target=self.check_market_auto, daemon=True, name="DareFX-AutoCheck").start()
 
                 time.sleep(1)
             except KeyboardInterrupt:

@@ -212,6 +212,9 @@ class MT5Bridge:
 
     def connect(self) -> bool:
         """Initialize connection to MetaTrader 5."""
+        if self._connected:
+            return True
+
         if self._metaapi_bridge:
             logger.info("Connecting to MT5 broker via MetaApi Cloud Bridge...")
             self._connected = self._metaapi_bridge.connect()
@@ -223,27 +226,31 @@ class MT5Bridge:
             return True
 
         # Native MetaTrader 5 initialization
-        init_kwargs: dict[str, Any] = {"timeout": self.credentials.timeout}
-        if self.credentials.path:
-            init_kwargs["path"] = self.credentials.path
+        # 1. First attempt to attach directly to already running MT5 terminal instance
+        attached = mt5.initialize(timeout=5000)
+        if not attached and self.credentials.path:
+            attached = mt5.initialize(path=self.credentials.path, timeout=5000)
 
-        if not mt5.initialize(**init_kwargs):
+        if not attached:
             err = mt5.last_error()
             logger.error("MetaTrader5 initialization failed: %s", err)
             return False
 
         if self.credentials.login > 0:
-            authorized = mt5.login(
-                login=self.credentials.login,
-                password=self.credentials.password,
-                server=self.credentials.server,
-                timeout=self.credentials.timeout,
-            )
-            if not authorized:
-                err = mt5.last_error()
-                logger.error("MetaTrader5 login failed for account %d: %s", self.credentials.login, err)
-                mt5.shutdown()
-                return False
+            acc = mt5.account_info()
+            if acc and acc.login == self.credentials.login:
+                logger.info("Active MT5 session verified for account %d on %s", acc.login, acc.server)
+            else:
+                authorized = mt5.login(
+                    login=self.credentials.login,
+                    password=self.credentials.password,
+                    server=self.credentials.server,
+                    timeout=5000,
+                )
+                if not authorized:
+                    err = mt5.last_error()
+                    logger.error("MetaTrader5 login failed for account %d: %s", self.credentials.login, err)
+                    return False
 
         self._connected = True
         logger.info("Successfully authenticated to MT5 server: %s (Account: %d)",
