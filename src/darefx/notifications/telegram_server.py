@@ -335,21 +335,35 @@ class TelegramServer:
         try:
             bot = TradingBot(config=BotConfig(execute_orders=True))
             res = bot.run_daily_cycle()
+            exec_res = res
             status = res.get("status")
 
             if status == "signal_dispatched":
-                action = res["action"]
+                is_executed = exec_res.get("ticket", 0) > 0 and exec_res.get("execution_status") in ("executed", "simulated")
+                action = exec_res.get("action", "UNKNOWN")
                 icon = "🟢" if action == "BUY" else "🔴"
-                msg = (
-                    f"✅ *ORDER BERHASIL DIEKSEKUSI!*\n"
-                    "━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"• *Tiket Broker:* `#{res.get('ticket')}`\n"
-                    f"• *Aksi:* {icon} `{action} {res['lots']:.2f} lots`\n"
-                    f"• *Harga:* `{res['entry_price']:.5f}`\n"
-                    f"• *SL:* `{res['stop_loss']:.5f}` | *TP:* `{res['take_profit']:.5f}`\n"
-                    f"• *Status Eksekusi:* `{res.get('execution_status')}`\n"
-                    "━━━━━━━━━━━━━━━━━━━━━"
-                )
+                if is_executed:
+                    msg = (
+                        f"✅ *ORDER BERHASIL DIEKSEKUSI!*\n"
+                        "━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"• *Tiket Broker:* `#{exec_res.get('ticket')}`\n"
+                        f"• *Aksi:* {icon} `{action} {exec_res['lots']:.2f} lots`\n"
+                        f"• *Harga:* `{exec_res['entry_price']:.5f}`\n"
+                        f"• *SL:* `{exec_res['stop_loss']:.5f}` | *TP:* `{exec_res['take_profit']:.5f}`\n"
+                        f"• *Status Eksekusi:* `{exec_res.get('execution_status')}`\n"
+                        "━━━━━━━━━━━━━━━━━━━━━"
+                    )
+                else:
+                    broker_msg = exec_res.get("execution_message", "Market closed / Order rejected")
+                    msg = (
+                        f"⏸️ *SINYAL TERDETEKSI (PASAR SEDANG LIBUR/TUTUP)*\n"
+                        "━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"• *Sinyal AI:* {icon} `{action} {exec_res.get('lots', 0.01):.2f} lots`\n"
+                        f"• *Respon Broker:* `{broker_msg}`\n"
+                        "• *Penyebab:* Bursa Forex dunia libur akhir pekan (Sabtu & Minggu).\n"
+                        "• *Tindakan Bot:* Otomatis standby. Begitu sesi pasar dibuka kembali Senin subuh (05:00 WIB), order akan langsung ditembakkan ke broker.\n"
+                        "━━━━━━━━━━━━━━━━━━━━━"
+                    )
             else:
                 msg = f"ℹ️ *Siklus selesai:* {res.get('status')}\n_{res.get('reason', 'Tidak ada order yang dikirim')}_"
 
@@ -412,19 +426,34 @@ class TelegramServer:
                     exec_res = bot.run_daily_cycle()
                     status = exec_res.get("status")
                     if status == "signal_dispatched":
-                        action = exec_res["action"]
+                        is_executed = exec_res.get("ticket", 0) > 0 and exec_res.get("execution_status") in ("executed", "simulated")
+                        action = exec_res.get("action", "UNKNOWN")
                         icon = "🟢" if action == "BUY" else "🔴"
-                        msg = (
-                            f"⚡ *AUTO-TRADE: ORDER OTOMATIS DIEKSEKUSI!*\n"
-                            "━━━━━━━━━━━━━━━━━━━━━\n"
-                            f"• *Aksi:* {icon} `{action} {exec_res['lots']:.2f} lots`\n"
-                            f"• *Tiket Broker:* `#{exec_res.get('ticket')}`\n"
-                            f"• *Harga:* `{exec_res['entry_price']:.5f}`\n"
-                            f"• *SL:* `{exec_res['stop_loss']:.5f}` | *TP:* `{exec_res['take_profit']:.5f}`\n"
-                            f"• *Tingkat Keyakinan:* `{exec_res['confidence'] * 100:.1f}%`\n"
-                            f"• *Status Eksekusi:* `{exec_res.get('execution_status')}`\n"
-                            "━━━━━━━━━━━━━━━━━━━━━"
-                        )
+                        if is_executed:
+                            msg = (
+                                f"⚡ *AUTO-TRADE: ORDER OTOMATIS DIEKSEKUSI!*\n"
+                                "━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"• *Tiket Broker:* `#{exec_res.get('ticket')}`\n"
+                                f"• *Aksi:* {icon} `{action} {exec_res['lots']:.2f} lots`\n"
+                                f"• *Harga:* `{exec_res['entry_price']:.5f}`\n"
+                                f"• *SL:* `{exec_res['stop_loss']:.5f}` | *TP:* `{exec_res['take_profit']:.5f}`\n"
+                                f"• *Tingkat Keyakinan:* `{exec_res['confidence'] * 100:.1f}%`\n"
+                                f"• *Status Eksekusi:* `{exec_res.get('execution_status')}`\n"
+                                "━━━━━━━━━━━━━━━━━━━━━"
+                            )
+                        else:
+                            broker_msg = exec_res.get("execution_message", "Market closed / Order rejected")
+                            msg = (
+                                f"⏸️ *SINYAL TERDETEKSI (PASAR SEDANG LIBUR/TUTUP)*\n"
+                                "━━━━━━━━━━━━━━━━━━━━━\n"
+                                f"• *Sinyal AI:* {icon} `{action} {exec_res.get('lots', 0.01):.2f} lots`\n"
+                                f"• *Harga:* `{exec_res['entry_price']:.5f}`\n"
+                                f"• *SL:* `{exec_res['stop_loss']:.5f}` | *TP:* `{exec_res['take_profit']:.5f}`\n"
+                                f"• *Respon Broker:* `{broker_msg}`\n"
+                                "• *Penyebab:* Bursa Forex dunia libur akhir pekan (Sabtu & Minggu).\n"
+                                "• *Tindakan Bot:* Otomatis standby. Begitu sesi pasar dibuka kembali Senin subuh (05:00 WIB), order akan otomatis ditembakkan ke broker.\n"
+                                "━━━━━━━━━━━━━━━━━━━━━"
+                            )
                     else:
                         msg = (
                             f"⚠️ *AUTO-TRADE TERTUNDA:* {exec_res.get('reason')}\n"

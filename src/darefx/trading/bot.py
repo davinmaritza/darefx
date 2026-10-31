@@ -184,20 +184,24 @@ class TradingBot:
             )
             ticket = exec_rep.ticket
             execution_status = exec_rep.status
+            execution_message = exec_rep.message
+        else:
+            execution_message = "Paper trading simulation"
 
-        # 8. Dispatch Telegram alert
-        self.notifier.notify_trade_opened(
-            direction=action,
-            symbol=self.config.symbol,
-            lots=sizing.lots,
-            entry_price=latest_close,
-            stop_loss=stop_loss,
-            take_profit=take_profit,
-            confidence=confidence,
-        )
+        # 8. Dispatch Telegram alert only if order was actually executed or simulated
+        if execution_status in ("executed", "simulated") and ticket > 0:
+            self.notifier.notify_trade_opened(
+                direction=action,
+                symbol=self.config.symbol,
+                lots=sizing.lots,
+                entry_price=latest_close,
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+                confidence=confidence,
+            )
 
-        logger.info("Signal generated: %s %.2f lots %s @ %.5f (Execution: %s, Ticket: #%d)",
-                    action, sizing.lots, self.config.symbol, latest_close, execution_status, ticket)
+        logger.info("Signal generated: %s %.2f lots %s @ %.5f (Execution: %s, Ticket: #%d, Message: %s)",
+                    action, sizing.lots, self.config.symbol, latest_close, execution_status, ticket, execution_message)
 
         return {
             "status": "signal_dispatched",
@@ -209,5 +213,6 @@ class TradingBot:
             "confidence": confidence,
             "adx": latest_adx,
             "execution_status": execution_status,
+            "execution_message": execution_message,
             "ticket": ticket,
         }
