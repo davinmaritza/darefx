@@ -425,6 +425,18 @@ class MT5Bridge:
             mt5_order_type = mt5.ORDER_TYPE_SELL
             price = tick.bid
 
+        # Dynamic filling mode selection with fallback
+        sym_info = mt5.symbol_info(symbol)
+        filling_candidates = [mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_RETURN]
+        if sym_info is not None:
+            filling_mode = sym_info.filling_mode
+            if filling_mode & 1:
+                filling_candidates = [mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_RETURN]
+            elif filling_mode & 2:
+                filling_candidates = [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]
+            else:
+                filling_candidates = [mt5.ORDER_FILLING_RETURN, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_IOC]
+
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
@@ -437,10 +449,18 @@ class MT5Bridge:
             "magic": 20261029,
             "comment": comment,
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_filling": filling_candidates[0],
         }
 
-        result = mt5.order_send(request)
+        result = None
+        for fill_mode in filling_candidates:
+            request["type_filling"] = fill_mode
+            result = mt5.order_send(request)
+            if result is not None and result.retcode == mt5.TRADE_RETCODE_DONE:
+                break
+            if result is not None and result.retcode != 10030:
+                break
+
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             err_code = result.retcode if result else -1
             err_comment = result.comment if result else str(mt5.last_error())
@@ -505,6 +525,18 @@ class MT5Bridge:
             close_type = mt5.ORDER_TYPE_BUY
             price = tick.ask
 
+        # Dynamic filling mode selection with fallback
+        sym_info = mt5.symbol_info(pos.symbol)
+        filling_candidates = [mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_RETURN]
+        if sym_info is not None:
+            filling_mode = sym_info.filling_mode
+            if filling_mode & 1:
+                filling_candidates = [mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_RETURN]
+            elif filling_mode & 2:
+                filling_candidates = [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]
+            else:
+                filling_candidates = [mt5.ORDER_FILLING_RETURN, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_IOC]
+
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
             "position": ticket,
@@ -516,10 +548,18 @@ class MT5Bridge:
             "magic": 20261029,
             "comment": f"close #{ticket}",
             "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
+            "type_filling": filling_candidates[0],
         }
 
-        result = mt5.order_send(request)
+        result = None
+        for fill_mode in filling_candidates:
+            request["type_filling"] = fill_mode
+            result = mt5.order_send(request)
+            if result is not None and result.retcode == mt5.TRADE_RETCODE_DONE:
+                break
+            if result is not None and result.retcode != 10030:
+                break
+
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             err_code = result.retcode if result else -1
             err_comment = result.comment if result else str(mt5.last_error())
