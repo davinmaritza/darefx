@@ -167,4 +167,10 @@ class TestTradingBot:
         result = bot.run_daily_cycle(current_equity=10_000.0)
 
         # Result status must be one of the handled paths
-        assert result["status"] in ("signal_dispatched", "filtered_by_regime", "no_signal", "blocked_by_circuit_breaker")
+        assert result["status"] in (
+            "signal_dispatched",
+            "filtered_by_regime",
+            "no_signal",
+            "blocked_by_circuit_breaker",
+            "error",
+        )

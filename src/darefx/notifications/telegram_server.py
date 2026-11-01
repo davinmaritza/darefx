@@ -22,6 +22,7 @@ from darefx.analysis.evaluator import SystemEvaluator
 from darefx.analysis.market_analyzer import MarketAnalyzer
 from darefx.risk.circuit_breaker import CircuitBreaker, CircuitState
 from darefx.trading.bot import BotConfig, TradingBot
+from darefx.trading.executor import ExecutionConfig, OrderExecutor
 from darefx.trading.mt5_bridge import MT5Bridge, OrderType
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,11 @@ class TelegramServer:
         self.autowatch_enabled = True
         self.autotrade_enabled = os.getenv("AUTO_TRADE", "true").lower() == "true"
         self.last_auto_check = 0.0
+        self.last_be_check = 0.0
         self.last_heartbeat_day: str = ""
+        self.bridge = MT5Bridge()
+        self.circuit_breaker = CircuitBreaker()
+        self.executor = OrderExecutor(bridge=self.bridge, circuit_breaker=self.circuit_breaker)
 
     def get_keyboard(self) -> dict[str, Any]:
         """Generate interactive keyboard reflecting live Auto-Trade status."""
@@ -48,8 +53,9 @@ class TelegramServer:
             "keyboard": [
                 [{"text": "🤖 Analisis AI"}, {"text": "🎯 Cek Sinyal"}],
                 [{"text": "📊 Cek Status"}, {"text": "⚡ Eksekusi Trade"}],
-                [{"text": autotrade_label}, {"text": "🛡️ Reset Sirkuit"}],
-                [{"text": "📈 Rekor Statistik"}, {"text": "❓ Bantuan"}],
+                [{"text": autotrade_label}, {"text": "📰 Kalender Berita"}],
+                [{"text": "📈 Rekor Statistik"}, {"text": "🛡️ Reset Sirkuit"}],
+                [{"text": "❓ Bantuan"}],
             ],
             "resize_keyboard": True,
             "one_time_keyboard": False,
@@ -62,7 +68,8 @@ class TelegramServer:
             {"command": "analisis", "description": "Analisis AI pasar mendalam & rekomendasi jual/beli"},
             {"command": "autotrade", "description": "Saklar ON / OFF otomatisasi jual beli penuh"},
             {"command": "check", "description": "Cek sinyal trading cepat"},
-            {"command": "status", "description": "Status akun, margin & proteksi modal"},
+            {"command": "status", "description": "Status akun, margin, news guard & proteksi modal"},
+            {"command": "news", "description": "Jadwal kalender berita ekonomi & status news freeze"},
             {"command": "run", "description": "Eksekusi satu siklus trading ke broker"},
             {"command": "evaluate", "description": "Statistik performa & evaluasi kuantitatif"},
             {"command": "heartbeat", "description": "Laporan harian status bot & broker"},
@@ -118,6 +125,8 @@ class TelegramServer:
             self._handle_analysis(sender_id)
         elif cmd in ("/status", "📊 cek status"):
             self._handle_status(sender_id)
+        elif cmd in ("/news", "📰 kalender berita", "kalender berita", "news"):
+            self._handle_news(sender_id)
         elif cmd in ("/check", "🎯 cek sinyal"):
             self._handle_check(sender_id)
         elif cmd in ("/run", "⚡ eksekusi trade"):
@@ -150,7 +159,8 @@ class TelegramServer:
             "• 🤖 *Analisis AI* — Analisis live mendalam: tren, indikator & rekomendasi jual/beli\n"
             f"• 🔄 *Auto-Trade Switch* — Status saat ini: `{autotrade_state}` (Ketuk tombolnya untuk ON / OFF)\n"
             "• 🎯 *Cek Sinyal* — Status ringkas sinyal hari ini\n"
-            "• 📊 *Cek Status* — Cek saldo, margin & proteksi modal\n"
+            "• 📊 *Cek Status* — Cek saldo, margin, news guard & proteksi modal\n"
+            "• 📰 *Kalender Berita* — Jadwal high-impact news & status freeze\n"
             "• ⚡ *Eksekusi Trade* — Jalankan 1 siklus manual sekarang\n"
             "• 📈 *Rekor Statistik* — Lihat win rate & performa backtest\n"
             "• 🛡️ *Reset Sirkuit* — Buka kunci jika status shutdown"
@@ -218,8 +228,18 @@ class TelegramServer:
 
         autotrade_str = "🟢 AKTIF (Otomatis Beli/Jual)" if self.autotrade_enabled else "🔴 NONAKTIF (Alert Saja)"
 
+        # News Filter status check
+        news_status_str = "🟢 CLEAR (Bebas Berita Tinggi)"
+        try:
+            from darefx.risk.news_filter import EconomicNewsFilter
+            news_filter = EconomicNewsFilter()
+            is_frozen, freeze_reason = news_filter.is_news_freeze("EURUSD")
+            news_status_str = f"🔴 FREEZE ({freeze_reason})" if is_frozen else "🟢 CLEAR (Bebas Berita Tinggi)"
+        except Exception as e:
+            logger.warning("News filter status check error: %s", e)
+
         # Query open positions and live floating PnL
-        bridge = MT5Bridge()
+        bridge = self.bridge
         connected = False
         try:
             connected = bridge.connect()
@@ -250,6 +270,7 @@ class TelegramServer:
             "━━━━━━━━━━━━━━━━━━━━━",
             f"• *Auto-Trade:* `{autotrade_str}`",
             f"• *Status Sirkuit:* `{state_icon}`",
+            f"• *News Guard:* `{news_status_str}`",
             f"• *Saldo Akun (Balance):* `${balance:,.2f}`",
             f"• *Floating P&L:* `{'+' if total_floating_pnl >= 0 else ''}${total_floating_pnl:,.2f}`",
             f"• *Total Ekuitas:* `${live_equity:,.2f}`",
@@ -283,6 +304,48 @@ class TelegramServer:
         ])
 
         self.send_reply(chat_id, "\n".join(lines))
+
+    def _handle_news(self, chat_id: str | int) -> None:
+        """Report upcoming high-impact economic news events and current freeze status."""
+        try:
+            from darefx.risk.news_filter import EconomicNewsFilter
+            filter_obj = EconomicNewsFilter()
+            is_frozen, freeze_reason = filter_obj.is_news_freeze("EURUSD")
+            events = filter_obj.get_upcoming_events("EURUSD", hours_ahead=24)
+
+            lines = [
+                "📰 *KALENDER BERITA EKONOMI & NEWS GUARD*",
+                "━━━━━━━━━━━━━━━━━━━━━",
+            ]
+            if is_frozen:
+                lines.append(f"⛔ *STATUS FILTER:* `FREEZE (AKTIF)`\n• *Alasan:* {freeze_reason}\n• *Aturan:* Freeze ±30 menit sebelum & sesudah rilis berita berdampak tinggi.")
+            else:
+                lines.append("🟢 *STATUS FILTER:* `CLEAR (AMAN)`\n• *Kondisi:* Tidak ada berita berdampak tinggi dalam jendela freeze 30 menit.")
+
+            lines.append("━━━━━━━━━━━━━━━━━━━━━")
+            lines.append("📅 *JADWAL BERITA BERIKUTNYA (24 JAM KE DEPAN):*")
+
+            if not events:
+                lines.append("• _Tidak ada jadwal berita High / Medium Impact untuk EUR / USD dalam 24 jam ke depan._")
+            else:
+                for ev in events[:8]:
+                    impact_icon = "🔴" if ev.get("impact") == "High" else "🟡"
+                    time_wib_str = "N/A"
+                    if ev.get("datetime_wib"):
+                        time_wib_str = ev["datetime_wib"].strftime("%d %b %H:%M WIB")
+                    lines.append(
+                        f"• {impact_icon} *{ev.get('currency')}* | `{time_wib_str}`\n"
+                        f"  _{ev.get('title')}_"
+                    )
+
+            lines.extend([
+                "━━━━━━━━━━━━━━━━━━━━━",
+                "💡 _News Filter otomatis mengunci eksekusi baru saat high-impact news rilis._",
+            ])
+            self.send_reply(chat_id, "\n".join(lines))
+        except Exception as err:
+            logger.exception("Error during /news command: %s", err)
+            self.send_reply(chat_id, f"❌ Terjadi kesalahan saat memeriksa berita: `{err}`")
 
 
     def _handle_check(self, chat_id: str | int) -> None:
@@ -518,6 +581,32 @@ class TelegramServer:
         except Exception as err:
             logger.error("Auto market monitoring check error: %s", err)
 
+    def check_breakeven_auto(self) -> None:
+        """Periodic background check for open positions to move SL to Break-Even."""
+        if not self.allowed_chat_id:
+            return
+        try:
+            if not self.bridge.connect():
+                return
+            updated_orders = self.executor.check_and_apply_breakeven("EURUSD")
+            for order in updated_orders:
+                ticket = order["ticket"]
+                new_sl = order["new_sl"]
+                floating_pips = order["floating_pips"]
+                msg = (
+                    "🛡️ *PROTEKSI BREAK-EVEN TERPASANG (ZERO RISK)!* 🔒\n"
+                    "━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"• *Tiket Order:* `#{ticket}`\n"
+                    f"• *Pair:* `EURUSD`\n"
+                    f"• *Floating Profit:* `+{floating_pips:.1f} pips` (Target $\\ge 15$ pips tercapai)\n"
+                    f"• *Stop Loss Baru:* `{new_sl:.5f}` (+1.0 pip di atas entry)\n"
+                    "• *Status:* Posisi ini sekarang **BEBAS RISIKO KERUGIAN**!\n"
+                    "━━━━━━━━━━━━━━━━━━━━━"
+                )
+                self.send_reply(self.allowed_chat_id, msg)
+        except Exception as err:
+            logger.error("Error during auto breakeven check: %s", err)
+
     def run_once(self) -> int:
         """Poll for new updates once and process them. Returns number of updates processed."""
         url = f"{self.base_url}/getUpdates"
@@ -543,14 +632,16 @@ class TelegramServer:
 
     def start_polling(self, auto_check_interval: int = 3600) -> None:
         """Run continuous long-polling listener loop with automated background monitoring."""
+        import threading
+
         self.running = True
         self.register_bot_commands()
         self.last_auto_check = time.time()
+        self.last_be_check = time.time()
         logger.info("DareFX Telegram server polling started for chat ID %s...", self.allowed_chat_id)
 
         # Run initial auto-check on startup if enabled in background thread
         if self.autowatch_enabled:
-            import threading
             logger.info("Launching autonomous market check in background thread...")
             threading.Thread(target=self.check_market_auto, daemon=True, name="DareFX-AutoCheck").start()
 
@@ -558,11 +649,17 @@ class TelegramServer:
             try:
                 self.run_once()
 
-                # Periodic background auto-check
                 now = time.time()
+
+                # Periodic background auto-check (hourly)
                 if self.autowatch_enabled and (now - self.last_auto_check >= auto_check_interval):
                     self.last_auto_check = now
                     threading.Thread(target=self.check_market_auto, daemon=True, name="DareFX-AutoCheck").start()
+
+                # Periodic background breakeven check (every 15s)
+                if now - self.last_be_check >= 15:
+                    self.last_be_check = now
+                    threading.Thread(target=self.check_breakeven_auto, daemon=True, name="DareFX-BEPCheck").start()
 
                 # Daily morning heartbeat at 07:00 WIB (UTC+7)
                 now_utc = datetime.datetime.now(datetime.timezone.utc)

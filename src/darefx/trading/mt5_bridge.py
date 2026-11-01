@@ -573,3 +573,89 @@ class MT5Bridge:
             retcode=result.retcode,
             comment=result.comment,
         )
+
+    def get_open_positions(self, symbol: str = "") -> list[Position]:
+        """Query active open positions from MT5 or simulation."""
+        if not self._connected:
+            raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if not HAS_MT5_PACKAGE or self.credentials.simulation_mode:
+            positions = list(self._simulated_positions.values())
+            if symbol:
+                positions = [p for p in positions if p.symbol == symbol]
+            return positions
+
+        # Real MT5 query
+        raw_positions = mt5.positions_get(symbol=symbol) if symbol else mt5.positions_get()
+        if raw_positions is None:
+            return []
+
+        result: list[Position] = []
+        for pos in raw_positions:
+            order_type = OrderType.BUY if pos.type == mt5.ORDER_TYPE_BUY else OrderType.SELL
+            open_dt = datetime.fromtimestamp(pos.time, tz=timezone.utc)
+            result.append(
+                Position(
+                    ticket=pos.ticket,
+                    symbol=pos.symbol,
+                    order_type=order_type,
+                    volume=pos.volume,
+                    open_price=pos.price_open,
+                    current_price=pos.price_current,
+                    sl=pos.sl,
+                    tp=pos.tp,
+                    profit=pos.profit,
+                    open_time=open_dt,
+                )
+            )
+        return result
+
+    def modify_position_sl(self, ticket: int, new_sl: float) -> OrderResult:
+        """Modify the Stop Loss of an active position."""
+        if not self._connected:
+            raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if not HAS_MT5_PACKAGE or self.credentials.simulation_mode:
+            if ticket not in self._simulated_positions:
+                return OrderResult(success=False, comment=f"Ticket #{ticket} not found.")
+            pos = self._simulated_positions[ticket]
+            pos.sl = new_sl
+            self._save_simulated_state()
+            logger.info("[SIMULATION] Modified ticket #%d SL to %.5f", ticket, new_sl)
+            return OrderResult(
+                success=True,
+                ticket=ticket,
+                price=new_sl,
+                retcode=10009,
+                comment="SL updated successfully (Simulation).",
+            )
+
+        # Real MT5 position modify
+        positions = mt5.positions_get(ticket=ticket)
+        if not positions:
+            return OrderResult(success=False, comment=f"Ticket #{ticket} not found in MT5.")
+
+        pos = positions[0]
+        request = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": ticket,
+            "symbol": pos.symbol,
+            "sl": float(new_sl),
+            "tp": float(pos.tp),
+        }
+        res = mt5.order_send(request)
+        if res is None or res.retcode != mt5.TRADE_RETCODE_DONE:
+            err_code = res.retcode if res else -1
+            err_comment = res.comment if res else str(mt5.last_error())
+            logger.error("Failed to modify SL for ticket #%d: %s (Retcode: %d)", ticket, err_comment, err_code)
+            return OrderResult(success=False, retcode=err_code, comment=err_comment)
+
+        logger.info("Successfully updated SL for ticket #%d to %.5f", ticket, new_sl)
+        return OrderResult(
+            success=True,
+            ticket=ticket,
+            price=new_sl,
+            retcode=res.retcode,
+            comment=res.comment,
+        )
+
