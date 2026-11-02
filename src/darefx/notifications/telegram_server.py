@@ -460,15 +460,35 @@ class TelegramServer:
                         f"• *Status Eksekusi:* `{exec_res.get('execution_status')}`\n"
                         "━━━━━━━━━━━━━━━━━━━━━"
                     )
-                else:
-                    broker_msg = exec_res.get("execution_message", "Market closed / Order rejected")
+                elif exec_res.get("execution_status") == "rejected_max_positions":
                     msg = (
-                        f"⏸️ *SINYAL TERDETEKSI (PASAR SEDANG LIBUR/TUTUP)*\n"
+                        f"⏸️ *ORDER DITAHAN (KUOTA POSISI MAKSIMAL TERCAPAI)*\n"
+                        "━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"• *Sinyal AI:* {icon} `{action} {exec_res.get('lots', 0.01):.2f} lots`\n"
+                        f"• *Status:* Kuota trading aktif penuh (maksimal 3 posisi EURUSD).\n"
+                        f"• *Keterangan:* `{exec_res.get('execution_message')}`\n"
+                        f"• *Tindakan Bot:* Menahan order baru demi disiplin risiko & margin. Bot akan membuka posisi baru begitu salah satu transaksi aktif mencapai target TP/SL.\n"
+                        "━━━━━━━━━━━━━━━━━━━━━"
+                    )
+                elif "closed" in str(exec_res.get("execution_message", "")).lower():
+                    broker_msg = exec_res.get("execution_message", "Market closed")
+                    msg = (
+                        f"⏸️ *SINYAL TERDETEKSI (PASAR SEDANG TUTUP)*\n"
                         "━━━━━━━━━━━━━━━━━━━━━\n"
                         f"• *Sinyal AI:* {icon} `{action} {exec_res.get('lots', 0.01):.2f} lots`\n"
                         f"• *Respon Broker:* `{broker_msg}`\n"
-                        "• *Penyebab:* Bursa Forex dunia libur akhir pekan (Sabtu & Minggu).\n"
-                        "• *Tindakan Bot:* Otomatis standby. Begitu sesi pasar dibuka kembali Senin subuh (05:00 WIB), order akan langsung ditembakkan ke broker.\n"
+                        "• *Penyebab:* Bursa Forex dunia sedang libur/tutup.\n"
+                        "• *Tindakan Bot:* Standby otomatis sampai sesi perdagangan dibuka kembali.\n"
+                        "━━━━━━━━━━━━━━━━━━━━━"
+                    )
+                else:
+                    broker_msg = exec_res.get("execution_message", "Order rejected")
+                    msg = (
+                        f"⚠️ *ORDER BELUM DIEKSEKUSI OLEH BROKER*\n"
+                        "━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"• *Sinyal AI:* {icon} `{action} {exec_res.get('lots', 0.01):.2f} lots`\n"
+                        f"• *Respon Broker:* `{broker_msg}`\n"
+                        f"• *Status:* `{exec_res.get('execution_status')}`\n"
                         "━━━━━━━━━━━━━━━━━━━━━"
                     )
             else:
@@ -671,20 +691,13 @@ class TelegramServer:
                                 f"• *Status Eksekusi:* `{exec_res.get('execution_status')}`\n"
                                 "━━━━━━━━━━━━━━━━━━━━━"
                             )
+                            self.send_reply(self.allowed_chat_id, msg)
                         else:
-                            broker_msg = exec_res.get("execution_message", "Market closed / Order rejected")
-                            msg = (
-                                f"⏸️ *SINYAL TERDETEKSI (PASAR SEDANG LIBUR/TUTUP)*\n"
-                                "━━━━━━━━━━━━━━━━━━━━━\n"
-                                f"• *Sinyal AI:* {icon} `{action} {exec_res.get('lots', 0.01):.2f} lots`\n"
-                                f"• *Harga:* `{exec_res['entry_price']:.5f}`\n"
-                                f"• *SL:* `{exec_res['stop_loss']:.5f}` | *TP:* `{exec_res['take_profit']:.5f}`\n"
-                                f"• *Respon Broker:* `{broker_msg}`\n"
-                                "• *Penyebab:* Bursa Forex dunia libur akhir pekan (Sabtu & Minggu).\n"
-                                "• *Tindakan Bot:* Otomatis standby. Begitu sesi pasar dibuka kembali Senin subuh (05:00 WIB), order akan otomatis ditembakkan ke broker.\n"
-                                "━━━━━━━━━━━━━━━━━━━━━"
+                            logger.info(
+                                "Auto-check order not executed: %s (Status: %s)",
+                                exec_res.get("execution_message"),
+                                exec_res.get("execution_status"),
                             )
-                        self.send_reply(self.allowed_chat_id, msg)
                     else:
                         logger.info("Auto-check standby: %s", exec_res.get('reason', 'No trade signal'))
                 else:
