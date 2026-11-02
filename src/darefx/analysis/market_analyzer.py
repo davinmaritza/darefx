@@ -199,7 +199,10 @@ class MarketAnalyzer:
                 live_bars = downloader.fetch_daily_bars(range_str=range_str)
                 if not live_bars.empty:
                     # Combine and deduplicate on timestamp date
-                    combined = pd.concat([df_bars, live_bars], ignore_index=True)
+                    if not df_bars.empty:
+                        combined = pd.concat([df_bars, live_bars], ignore_index=True)
+                    else:
+                        combined = live_bars.copy()
                     combined["date_only"] = pd.to_datetime(combined["timestamp"]).dt.date
                     combined = combined.drop_duplicates(subset=["date_only"], keep="last")
                     combined = combined.drop(columns=["date_only"]).sort_values("timestamp").reset_index(drop=True)
@@ -238,6 +241,9 @@ class MarketAnalyzer:
                 })
 
         # 3. Extract technical indicators
+        for col in ["open", "high", "low", "close", "volume"]:
+            if col in df_bars.columns:
+                df_bars[col] = pd.to_numeric(df_bars[col], errors="coerce").astype(float)
         df_features = extract_features(df_bars, dropna=True)
         latest = df_features.iloc[-1]
         prev = df_features.iloc[-2] if len(df_features) > 1 else latest

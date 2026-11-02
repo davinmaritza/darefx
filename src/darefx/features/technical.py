@@ -152,6 +152,9 @@ def extract_features(df_bars: pd.DataFrame, dropna: bool = True) -> pd.DataFrame
         return df_bars.copy()
 
     df = df_bars.copy()
+    for col in ["open", "high", "low", "close", "volume"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype(float)
     close = df["close"]
     high = df["high"]
     low = df["low"]
