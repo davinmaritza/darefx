@@ -242,7 +242,7 @@ class MT5Bridge:
             acc = mt5.account_info()
             if acc and acc.login == self.credentials.login:
                 logger.info("Active MT5 session verified for account %d on %s", acc.login, acc.server)
-            else:
+            elif self.credentials.password:
                 authorized = mt5.login(
                     login=self.credentials.login,
                     password=self.credentials.password,
@@ -254,6 +254,8 @@ class MT5Bridge:
                     self.last_error = f"Login failed for account {self.credentials.login} on {self.credentials.server}: {err}"
                     logger.error("MetaTrader5 login failed for account %d: %s", self.credentials.login, err)
                     return False
+            elif acc:
+                logger.info("Active MT5 account %d on %s accepted without credentials override.", acc.login, acc.server)
 
         self._connected = True
         logger.info("Successfully authenticated to MT5 server: %s (Account: %d)",

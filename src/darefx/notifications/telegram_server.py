@@ -25,6 +25,13 @@ from darefx.trading.bot import BotConfig, TradingBot
 from darefx.trading.executor import ExecutionConfig, OrderExecutor
 from darefx.trading.mt5_bridge import MT5Bridge, OrderType
 
+try:
+    import MetaTrader5 as mt5
+    HAS_MT5_PACKAGE = True
+except ImportError:
+    mt5 = None
+    HAS_MT5_PACKAGE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,10 +59,10 @@ class TelegramServer:
         return {
             "keyboard": [
                 [{"text": "🤖 Analisis AI"}, {"text": "🎯 Cek Sinyal"}],
-                [{"text": "📊 Cek Status"}, {"text": "⚡ Eksekusi Trade"}],
+                [{"text": "📊 Cek Status"}, {"text": "⚡ Order Tes 0.01"}],
                 [{"text": autotrade_label}, {"text": "📰 Kalender Berita"}],
-                [{"text": "📈 Rekor Statistik"}, {"text": "🛡️ Reset Sirkuit"}],
-                [{"text": "❓ Bantuan"}],
+                [{"text": "📈 Rekor Statistik"}, {"text": "🔴 Tutup Semua Posisi"}],
+                [{"text": "⚡ Eksekusi Trade"}, {"text": "❓ Bantuan"}],
             ],
             "resize_keyboard": True,
             "one_time_keyboard": False,
@@ -69,6 +76,8 @@ class TelegramServer:
             {"command": "autotrade", "description": "Saklar ON / OFF otomatisasi jual beli penuh"},
             {"command": "check", "description": "Cek sinyal trading cepat"},
             {"command": "status", "description": "Status akun, margin, news guard & proteksi modal"},
+            {"command": "testtrade", "description": "Eksekusi order tes 0.01 lot EUR/USD langsung ke broker"},
+            {"command": "closeall", "description": "Tutup semua posisi trading yang sedang aktif"},
             {"command": "news", "description": "Jadwal kalender berita ekonomi & status news freeze"},
             {"command": "run", "description": "Eksekusi satu siklus trading ke broker"},
             {"command": "evaluate", "description": "Statistik performa & evaluasi kuantitatif"},
@@ -131,6 +140,12 @@ class TelegramServer:
             self._handle_check(sender_id)
         elif cmd in ("/run", "⚡ eksekusi trade"):
             self._handle_run(sender_id)
+        elif cmd in ("/testtrade", "/test", "/testbuy", "/buy", "⚡ order tes 0.01", "order tes", "test"):
+            self._handle_testtrade(sender_id, "BUY")
+        elif cmd in ("/testsell", "/sell"):
+            self._handle_testtrade(sender_id, "SELL")
+        elif cmd in ("/close", "/closeall", "🔴 tutup semua posisi", "tutup posisi", "close"):
+            self._handle_closeall(sender_id)
         elif (
             cmd in ("/autotrade", "🟢 auto-trade: on", "🔴 auto-trade: off", "auto-trade: on", "auto-trade: off")
             or cmd.startswith("/autotrade")
@@ -544,6 +559,83 @@ class TelegramServer:
                 chat_id,
                 f"ℹ️ *Status Auto-Monitoring:* `{status}`\n\nGunakan `/autowatch on` untuk mengaktifkan atau `/autowatch off` untuk mematikan.",
             )
+
+    def _handle_testtrade(self, chat_id: str | int, action_str: str = "BUY") -> None:
+        """Submit a 0.01 lot test order to verify broker execution and live P&L flow."""
+        self.send_reply(chat_id, f"⚡ *Mengirim order uji coba (0.01 lot {action_str.upper()} EUR/USD)...*")
+        try:
+            if not self.bridge.is_connected:
+                self.bridge.connect()
+
+            tick = None
+            if HAS_MT5_PACKAGE and mt5 is not None:
+                tick = mt5.symbol_info_tick("EURUSD")
+
+            action = OrderType.BUY if action_str.upper() == "BUY" else OrderType.SELL
+            price = 1.11740
+            if tick is not None:
+                price = tick.ask if action == OrderType.BUY else tick.bid
+
+            # 20 pips SL and TP
+            sl = round(price - 0.0020, 5) if action == OrderType.BUY else round(price + 0.0020, 5)
+            tp = round(price + 0.0020, 5) if action == OrderType.BUY else round(price - 0.0020, 5)
+
+            res = self.bridge.send_market_order(
+                symbol="EURUSD",
+                action=action,
+                volume=0.01,
+                sl=sl,
+                tp=tp,
+                current_price=price,
+                comment="DareFX Demo Test",
+            )
+            if res.success:
+                self.send_reply(
+                    chat_id,
+                    f"🎉 *ORDER UJI COBA BERHASIL!*\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"• *Tiket Broker:* `#{res.ticket}`\n"
+                    f"• *Aksi:* `{'🟢 BUY' if action == OrderType.BUY else '🔴 SELL'} 0.01 lot EURUSD`\n"
+                    f"• *Harga Entry:* `{res.price:.5f}`\n"
+                    f"• *Stop Loss:* `{sl:.5f}`\n"
+                    f"• *Take Profit:* `{tp:.5f}`\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"💡 _Silakan ketuk tombol '📊 Cek Status' untuk memantau pergerakan saldo & floating P&L._"
+                )
+            else:
+                self.send_reply(
+                    chat_id,
+                    f"⚠️ *Order Uji Coba Gagal:*\n"
+                    f"• *Retcode:* `{res.retcode}`\n"
+                    f"• *Pesan:* `{res.comment}`"
+                )
+        except Exception as e:
+            logger.error("Error executing test trade: %s", e)
+            self.send_reply(chat_id, f"❌ Terjadi kesalahan saat mengirim order tes: `{e}`")
+
+    def _handle_closeall(self, chat_id: str | int) -> None:
+        """Close all active open positions."""
+        self.send_reply(chat_id, "🔄 *Menutup semua posisi terbuka...*")
+        try:
+            positions = self.bridge.get_positions()
+            if not positions:
+                self.send_reply(chat_id, "ℹ️ Tidak ada posisi terbuka yang perlu ditutup.")
+                return
+
+            closed_count = 0
+            for pos in positions:
+                res = self.bridge.close_position(pos.ticket)
+                if res.success:
+                    closed_count += 1
+
+            self.send_reply(
+                chat_id,
+                f"✅ *Berhasil menutup {closed_count}/{len(positions)} posisi!*\n"
+                f"💡 _Ketik '📊 Cek Status' untuk melihat rekap saldo terbaru._"
+            )
+        except Exception as e:
+            logger.error("Error closing positions: %s", e)
+            self.send_reply(chat_id, f"❌ Terjadi kesalahan saat menutup posisi: `{e}`")
 
     def check_market_auto(self) -> None:
         """Periodic background check that automatically analyzes and optionally executes orders."""
