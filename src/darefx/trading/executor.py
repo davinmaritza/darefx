@@ -26,6 +26,7 @@ class ExecutionConfig:
     max_spread_pips: float = float(os.getenv("MAX_SPREAD_PIPS", "3.0"))
     risk_pct: float = float(os.getenv("RISK_PER_TRADE_PCT", "1.0"))
     leverage: float = float(os.getenv("LEVERAGE", "100.0"))
+    max_open_positions: int = int(os.getenv("MAX_OPEN_POSITIONS", "1"))
     magic_number: int = 20261029
     news_filter_enabled: bool = True
     breakeven_trigger_pips: float = float(os.getenv("BREAKEVEN_TRIGGER_PIPS", "10.0"))
@@ -111,6 +112,20 @@ class OrderExecutor:
         except Exception as err:
             logger.error("Failed to query account balance from bridge: %s", err)
             equity = 10_000.0
+
+        # 4. Check Maximum Open Positions Limit
+        try:
+            current_positions = self.bridge.get_positions(symbol=symbol)
+            if len(current_positions) >= self.config.max_open_positions:
+                msg = f"Max open positions reached ({len(current_positions)}/{self.config.max_open_positions}) for {symbol}. Standing by."
+                logger.info(msg)
+                return ExecutionReport(
+                    executed=False,
+                    status="rejected_max_positions",
+                    message=msg,
+                )
+        except Exception as err:
+            logger.warning("Could not check open positions: %s", err)
 
         # 4. Calculate Position Sizing
         sizing: SizingResult = calculate_fixed_fractional_lots(
