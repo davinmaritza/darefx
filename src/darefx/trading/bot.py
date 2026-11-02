@@ -89,8 +89,21 @@ class TradingBot:
                 "reason": cb_reason,
             }
 
-        # 2. Load historical bars and compute latest features
+        # 2. Load historical bars and update with live market feed
         df_bars = self.storage.load_daily_bars(symbol=self.config.symbol)
+        try:
+            from darefx.data.downloader import YahooFinanceDownloader
+            downloader = YahooFinanceDownloader(symbol=f"{self.config.symbol}=X")
+            live_bars = downloader.fetch_daily_bars(range_str="1mo")
+            if not live_bars.empty:
+                combined = pd.concat([df_bars, live_bars], ignore_index=True)
+                combined["date_only"] = pd.to_datetime(combined["timestamp"]).dt.date
+                combined = combined.drop_duplicates(subset=["date_only"], keep="last")
+                df_bars = combined.drop(columns=["date_only"]).sort_values("timestamp").reset_index(drop=True)
+                self.storage.save_daily_bars(df_bars, symbol=self.config.symbol)
+        except Exception as err:
+            logger.warning("Could not fetch live Yahoo Finance bars, continuing with local data: %s", err)
+
         if len(df_bars) < 205:
             err_msg = f"Insufficient bars ({len(df_bars)}) to compute 200-period indicators."
             logger.error(err_msg)
