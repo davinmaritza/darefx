@@ -227,6 +227,12 @@ class MT5Bridge:
             return True
 
         # Native MetaTrader 5 initialization
+        # Clean up any lingering or broken IPC state before re-initializing
+        try:
+            mt5.shutdown()
+        except Exception:
+            pass
+
         # 1. First attempt to attach directly to already running MT5 terminal instance
         timeout_ms = self.credentials.timeout or 30000
         attached = mt5.initialize(timeout=timeout_ms)
@@ -237,6 +243,10 @@ class MT5Bridge:
             err = mt5.last_error()
             self.last_error = f"Attach terminal failed: {err}"
             logger.error("MetaTrader5 initialization failed: %s", err)
+            try:
+                mt5.shutdown()
+            except Exception:
+                pass
             return False
 
         if self.credentials.login > 0:
@@ -274,6 +284,10 @@ class MT5Bridge:
                     err = last_err or mt5.last_error()
                     self.last_error = f"Login failed for account {self.credentials.login} on {candidate_servers}: {err}"
                     logger.error("MetaTrader5 login failed for account %d across servers %s: %s", self.credentials.login, candidate_servers, err)
+                    try:
+                        mt5.shutdown()
+                    except Exception:
+                        pass
                     return False
             elif acc:
                 logger.info("Active MT5 account %d on %s accepted without credentials override.", acc.login, acc.server)
