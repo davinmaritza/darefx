@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -40,12 +41,12 @@ class BotConfig:
     symbol: str = "EURUSD"
     model_path: str = "data/models/lightgbm_eurusd.joblib"
     data_dir: str = "data/processed"
-    confidence_threshold: float = 0.40
-    adx_min: float = 32.0
-    pt_multiplier: float = 1.2
-    sl_multiplier: float = 1.0
-    risk_pct: float = 1.0
-    leverage: float = 100.0
+    confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.52"))
+    adx_min: float = float(os.getenv("ADX_MIN", "32.0"))
+    pt_multiplier: float = float(os.getenv("PT_MULTIPLIER", "0.9"))
+    sl_multiplier: float = float(os.getenv("SL_MULTIPLIER", "1.5"))
+    risk_pct: float = float(os.getenv("RISK_PER_TRADE_PCT", "1.0"))
+    leverage: float = float(os.getenv("LEVERAGE", "100.0"))
     execute_orders: bool = False
 
 
@@ -145,20 +146,29 @@ class TradingBot:
                 "probabilities": {"buy": prob_buy, "neutral": prob_neutral, "sell": prob_sell},
             }
 
-        # 5. Check signal direction and confidence threshold
+        # 5. Check signal direction and confidence threshold with Trend Alignment
         direction = 0
         confidence = 0.0
+        filter_reason = ""
         if prob_buy >= self.config.confidence_threshold and prob_buy > prob_sell:
-            direction = 1
-            confidence = prob_buy
+            if "ema_50" in latest_row and latest_close < float(latest_row["ema_50"]):
+                filter_reason = f"BUY rejected: counter-trend (Close {latest_close:.5f} < EMA50 {float(latest_row['ema_50']):.5f})"
+                logger.info(filter_reason)
+            else:
+                direction = 1
+                confidence = prob_buy
         elif prob_sell >= self.config.confidence_threshold and prob_sell > prob_buy:
-            direction = -1
-            confidence = prob_sell
+            if "ema_50" in latest_row and latest_close > float(latest_row["ema_50"]):
+                filter_reason = f"SELL rejected: counter-trend (Close {latest_close:.5f} > EMA50 {float(latest_row['ema_50']):.5f})"
+                logger.info(filter_reason)
+            else:
+                direction = -1
+                confidence = prob_sell
 
         if direction == 0:
             return {
                 "status": "no_signal",
-                "reason": f"Probabilities below threshold {self.config.confidence_threshold:.2f}",
+                "reason": filter_reason or f"Probabilities below threshold {self.config.confidence_threshold:.2f}",
                 "probabilities": {"buy": prob_buy, "neutral": prob_neutral, "sell": prob_sell},
             }
 

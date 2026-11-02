@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
+import os
 from typing import Any
 
 from darefx.risk.circuit_breaker import CircuitBreaker
@@ -22,13 +23,13 @@ logger = logging.getLogger(__name__)
 class ExecutionConfig:
     """Trade execution risk parameters."""
 
-    max_spread_pips: float = 3.0
-    risk_pct: float = 1.0
-    leverage: float = 100.0
+    max_spread_pips: float = float(os.getenv("MAX_SPREAD_PIPS", "3.0"))
+    risk_pct: float = float(os.getenv("RISK_PER_TRADE_PCT", "1.0"))
+    leverage: float = float(os.getenv("LEVERAGE", "100.0"))
     magic_number: int = 20261029
     news_filter_enabled: bool = True
-    breakeven_trigger_pips: float = 15.0
-    breakeven_buffer_pips: float = 1.0
+    breakeven_trigger_pips: float = float(os.getenv("BREAKEVEN_TRIGGER_PIPS", "10.0"))
+    breakeven_buffer_pips: float = float(os.getenv("BREAKEVEN_BUFFER_PIPS", "1.5"))
 
 
 @dataclass
