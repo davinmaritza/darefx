@@ -26,7 +26,7 @@ from darefx.notifications.telegram_server import TelegramServer
 
 if __name__ == "__main__":
     print("==================================================", flush=True)
-    print("  🚀 DareFX Aegis-Alpha (v2.1) Institutional Engine 🚀", flush=True)
+    print("  🚀 DareFX Mono Flash 1 Institutional Engine 🚀", flush=True)
     print("  ⚡ Powered by ByteNodes High-Performance Hosting ⚡", flush=True)
     print("==================================================", flush=True)
     server = TelegramServer()

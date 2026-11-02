@@ -294,7 +294,7 @@ class TelegramServer:
             floating_str = "$0.00"
 
         lines = [
-            "🛡️ *STATUS OPERASIONAL DAREFX (Aegis-Alpha v2.1)*",
+            "🛡️ *STATUS OPERASIONAL DAREFX (Mono Flash 1)*",
             "━━━━━━━━━━━━━━━━━━━━━",
             f"• *Status Broker:* `{broker_status_str}`",
         ]
@@ -305,7 +305,7 @@ class TelegramServer:
             f"• *Auto-Trade:* `{autotrade_str}`",
             f"• *Status Sirkuit:* `{state_icon}`",
             f"• *News Guard:* `{news_status_str}`",
-            f"• *Model Engine:* `DareFX Aegis-Alpha (v2.1)`",
+            f"• *Model Engine:* `DareFX Mono Flash 1`",
             f"• *Saldo Akun (Balance):* `{balance_str}`",
             f"• *Floating P&L:* `{floating_str}`",
             f"• *Total Ekuitas:* `{equity_str}`",
@@ -481,11 +481,11 @@ class TelegramServer:
 
     def _handle_evaluate(self, chat_id: str | int) -> None:
         msg = (
-            "📈 *REKOR PERFORMA & EVALUASI DAREFX (Aegis-Alpha v2.1)*\n"
+            "📈 *REKOR PERFORMA & EVALUASI DAREFX (Mono Flash 1)*\n"
             "_(Hasil Uji Out-Of-Sample 2003–2026, Multi-Year Trend Confluence)_\n"
             "━━━━━━━━━━━━━━━━━━━━━\n"
             "• *Total Return Net:* `+37.58%` (Modal $10k → $13,757)\n"
-            "• *Win Rate Target:* `67.8% – 71.2%` (Fine-tuned Aegis-Alpha)\n"
+            "• *Win Rate Target:* `67.8% – 71.2%` (Fine-tuned Mono Flash 1)\n"
             "• *Profit Factor:* `1.63` (Target > 1.30)\n"
             "• *Sharpe Ratio:* `4.24` (Annualized)\n"
             "• *Max Drawdown:* `4.62%` (Sangat aman < 15%)\n"
