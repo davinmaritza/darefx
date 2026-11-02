@@ -233,11 +233,21 @@ class MT5Bridge:
         except Exception:
             pass
 
-        # 1. First attempt to attach directly to already running MT5 terminal instance
-        timeout_ms = self.credentials.timeout or 30000
-        attached = mt5.initialize(timeout=timeout_ms)
-        if not attached and self.credentials.path:
+        timeout_ms = self.credentials.timeout or 60000
+        attached = False
+
+        # 1. If explicit terminal path is provided, prioritize it
+        if self.credentials.path:
+            logger.info("Initializing MetaTrader 5 with path: %s", self.credentials.path)
             attached = mt5.initialize(path=self.credentials.path, timeout=timeout_ms)
+
+        # 2. Fallback to default attach if not attached yet
+        if not attached:
+            try:
+                mt5.shutdown()
+            except Exception:
+                pass
+            attached = mt5.initialize(timeout=timeout_ms)
 
         if not attached:
             err = mt5.last_error()
@@ -250,7 +260,14 @@ class MT5Bridge:
             return False
 
         if self.credentials.login > 0:
-            acc = mt5.account_info()
+            # Allow time for terminal network sync if recently launched
+            acc = None
+            for _ in range(10):
+                acc = mt5.account_info()
+                if acc and (acc.login == self.credentials.login or self.credentials.login == 0) and acc.balance > 0:
+                    break
+                time.sleep(1)
+
             if acc and acc.login == self.credentials.login:
                 logger.info("Active MT5 session verified for account %d on %s", acc.login, acc.server)
             elif self.credentials.password:

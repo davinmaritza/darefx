@@ -549,7 +549,8 @@ class TelegramServer:
             except Exception as e:
                 logger.warning("MT5 heartbeat error: %s", e)
 
-            cb_status = CircuitBreaker().get_status()
+            cb = CircuitBreaker()
+            cb_status = cb.update(current_equity=cb.current_equity, current_date_str="NOW")
             autotrade_str = "🟢 AKTIF (AUTOPILOT)" if self.autotrade_enabled else "🔴 STANDBY (ALERT ONLY)"
             mt5_str = f"🟢 Connected ({server_name})" if connected else "🔴 Disconnected"
 
