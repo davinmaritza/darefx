@@ -617,6 +617,8 @@ class TelegramServer:
         """Close all active open positions."""
         self.send_reply(chat_id, "🔄 *Menutup semua posisi terbuka...*")
         try:
+            if not self.bridge.is_connected:
+                self.bridge.connect()
             positions = self.bridge.get_positions()
             if not positions:
                 self.send_reply(chat_id, "ℹ️ Tidak ada posisi terbuka yang perlu ditutup.")
@@ -757,9 +759,12 @@ class TelegramServer:
             logger.debug("Polling error: %s", err)
             return 0
 
-    def start_polling(self, auto_check_interval: int = 3600) -> None:
+    def start_polling(self, auto_check_interval: int | None = None) -> None:
         """Run continuous long-polling listener loop with automated background monitoring."""
         import threading
+
+        if auto_check_interval is None:
+            auto_check_interval = int(os.getenv("AUTO_CHECK_INTERVAL", "300"))
 
         self.running = True
         self.register_bot_commands()
