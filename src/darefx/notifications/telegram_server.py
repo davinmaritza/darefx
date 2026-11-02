@@ -241,46 +241,67 @@ class TelegramServer:
         # Query open positions and live floating PnL
         bridge = self.bridge
         connected = False
+        conn_error = ""
         try:
             connected = bridge.connect()
+            if not connected:
+                conn_error = getattr(bridge, "last_error", "Koneksi ke MT5 / Broker gagal.")
         except Exception as e:
+            conn_error = str(e)
             logger.warning("MT5 connect error: %s", e)
 
         positions = []
-        if connected:
-            try:
-                positions = bridge.get_positions()
-            except Exception as e:
-                logger.warning("MT5 get_positions error: %s", e)
-
-        total_floating_pnl = sum(p.profit for p in positions)
-        balance = status.current_equity
-        live_equity = status.current_equity + total_floating_pnl
+        balance = 0.0
+        live_equity = 0.0
+        total_floating_pnl = 0.0
 
         if connected:
             try:
                 acc_info = bridge.get_account_info()
                 balance = acc_info.balance
                 live_equity = acc_info.equity
+                positions = bridge.get_positions()
+                total_floating_pnl = sum(p.profit for p in positions)
             except Exception as e:
                 logger.warning("MT5 get_account_info error: %s", e)
+                conn_error = str(e)
+                connected = False
+
+        if connected:
+            broker_status_str = f"🟢 ONLINE ({bridge.credentials.server} - #{bridge.credentials.login})"
+            balance_str = f"${balance:,.2f}"
+            equity_str = f"${live_equity:,.2f}"
+            floating_str = f"{'+' if total_floating_pnl >= 0 else ''}${total_floating_pnl:,.2f}"
+        else:
+            broker_status_str = "🔴 DISCONNECTED (Gagal Login / Terminal Belum Siap)"
+            balance_str = "⚠️ Offline (Menunggu Login Broker)"
+            equity_str = "⚠️ Offline"
+            floating_str = "$0.00"
 
         lines = [
             "🛡️ *STATUS OPERASIONAL DAREFX (Aegis-Alpha v2.1)*",
             "━━━━━━━━━━━━━━━━━━━━━",
+            f"• *Status Broker:* `{broker_status_str}`",
+        ]
+        if not connected and conn_error:
+            lines.append(f"• *Kendala Login:* `{conn_error}`")
+
+        lines.extend([
             f"• *Auto-Trade:* `{autotrade_str}`",
             f"• *Status Sirkuit:* `{state_icon}`",
             f"• *News Guard:* `{news_status_str}`",
             f"• *Model Engine:* `DareFX Aegis-Alpha (v2.1)`",
-            f"• *Saldo Akun (Balance):* `${balance:,.2f}`",
-            f"• *Floating P&L:* `{'+' if total_floating_pnl >= 0 else ''}${total_floating_pnl:,.2f}`",
-            f"• *Total Ekuitas:* `${live_equity:,.2f}`",
+            f"• *Saldo Akun (Balance):* `{balance_str}`",
+            f"• *Floating P&L:* `{floating_str}`",
+            f"• *Total Ekuitas:* `{equity_str}`",
             f"• *P&L Hari Ini (Realized):* `{status.daily_pnl_pct:+.2f}%`",
             f"• *Peak Drawdown:* `{status.peak_drawdown_pct:.2f}%` (Max limit: 15%)",
             "━━━━━━━━━━━━━━━━━━━━━",
-        ]
+        ])
 
-        if positions:
+        if not connected:
+            lines.append("📊 *POSISI AKTIF:* `⚠️ Belum dapat memuat posisi (Broker Offline)`")
+        elif positions:
             lines.append("📊 *POSISI TRADING AKTIF BERJALAN:*")
             for p in positions:
                 icon = "🟢" if p.order_type == OrderType.BUY else "🔴"

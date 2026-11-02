@@ -12,10 +12,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(os.path.join("logs", "bot.log"), encoding="utf-8"),
+    ],
 )
 
 from darefx.notifications.telegram_server import TelegramServer

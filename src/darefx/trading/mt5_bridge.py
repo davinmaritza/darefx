@@ -128,6 +128,7 @@ class MT5Bridge:
                 self._state_file = None
 
         self._connected = False
+        self.last_error: str = ""
         self._metaapi_bridge: Any = None
 
         # Check if MetaApi cloud bridge should be utilized
@@ -233,6 +234,7 @@ class MT5Bridge:
 
         if not attached:
             err = mt5.last_error()
+            self.last_error = f"Attach terminal failed: {err}"
             logger.error("MetaTrader5 initialization failed: %s", err)
             return False
 
@@ -249,6 +251,7 @@ class MT5Bridge:
                 )
                 if not authorized:
                     err = mt5.last_error()
+                    self.last_error = f"Login failed for account {self.credentials.login} on {self.credentials.server}: {err}"
                     logger.error("MetaTrader5 login failed for account %d: %s", self.credentials.login, err)
                     return False
 
