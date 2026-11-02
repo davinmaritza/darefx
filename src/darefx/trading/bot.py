@@ -41,7 +41,7 @@ class BotConfig:
     symbol: str = "EURUSD"
     model_path: str = "data/models/lightgbm_eurusd.joblib"
     data_dir: str = "data/processed"
-    confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.52"))
+    confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.40"))
     adx_min: float = float(os.getenv("ADX_MIN", "32.0"))
     pt_multiplier: float = float(os.getenv("PT_MULTIPLIER", "0.9"))
     sl_multiplier: float = float(os.getenv("SL_MULTIPLIER", "1.5"))

@@ -684,12 +684,9 @@ class TelegramServer:
                                 "• *Tindakan Bot:* Otomatis standby. Begitu sesi pasar dibuka kembali Senin subuh (05:00 WIB), order akan otomatis ditembakkan ke broker.\n"
                                 "━━━━━━━━━━━━━━━━━━━━━"
                             )
+                        self.send_reply(self.allowed_chat_id, msg)
                     else:
-                        msg = (
-                            f"⚠️ *AUTO-TRADE TERTUNDA:* {exec_res.get('reason')}\n"
-                            "━━━━━━━━━━━━━━━━━━━━━\n" + report.to_telegram_markdown()
-                        )
-                    self.send_reply(self.allowed_chat_id, msg)
+                        logger.info("Auto-check standby: %s", exec_res.get('reason', 'No trade signal'))
                 else:
                     prefix = (
                         f"🚨 *NOTIFIKASI: SINYAL {report.recommendation} TERDETEKSI!*\n"

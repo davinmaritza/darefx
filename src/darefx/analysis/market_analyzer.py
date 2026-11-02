@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -163,7 +164,7 @@ class MarketAnalyzer:
         data_dir: str = "data/processed",
         model_path: str = "data/models/lightgbm_eurusd.joblib",
         adx_min: float = 32.0,
-        confidence_threshold: float = 0.40,
+        confidence_threshold: float | None = None,
         pt_multiplier: float = 1.2,
         sl_multiplier: float = 1.0,
     ) -> None:
@@ -171,7 +172,11 @@ class MarketAnalyzer:
         self.data_dir = data_dir
         self.model_path = model_path
         self.adx_min = adx_min
-        self.confidence_threshold = confidence_threshold
+        self.confidence_threshold = (
+            confidence_threshold
+            if confidence_threshold is not None
+            else float(os.getenv("CONFIDENCE_THRESHOLD", "0.40"))
+        )
         self.pt_multiplier = pt_multiplier
         self.sl_multiplier = sl_multiplier
         self.storage = ParquetStorage(base_dir=data_dir)
