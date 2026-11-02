@@ -228,9 +228,10 @@ class MT5Bridge:
 
         # Native MetaTrader 5 initialization
         # 1. First attempt to attach directly to already running MT5 terminal instance
-        attached = mt5.initialize(timeout=5000)
+        timeout_ms = self.credentials.timeout or 30000
+        attached = mt5.initialize(timeout=timeout_ms)
         if not attached and self.credentials.path:
-            attached = mt5.initialize(path=self.credentials.path, timeout=5000)
+            attached = mt5.initialize(path=self.credentials.path, timeout=timeout_ms)
 
         if not attached:
             err = mt5.last_error()
