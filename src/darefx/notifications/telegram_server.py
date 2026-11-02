@@ -725,6 +725,19 @@ class TelegramServer:
         """Poll for new updates once and process them. Returns number of updates processed."""
         url = f"{self.base_url}/getUpdates"
         params = {"offset": self.last_update_id + 1, "timeout": 2}
+        # Check for local IPC command trigger file (e.g. data/command.txt)
+        cmd_file = os.path.join("data", "command.txt")
+        if os.path.exists(cmd_file):
+            try:
+                with open(cmd_file, "r", encoding="utf-8") as f:
+                    local_cmd = f.read().strip()
+                os.remove(cmd_file)
+                if local_cmd:
+                    logger.info("Executing local trigger command: '%s'", local_cmd)
+                    self.handle_message(local_cmd, self.allowed_chat_id)
+            except Exception as err:
+                logger.warning("Failed to process local command trigger: %s", err)
+
         try:
             resp = requests.get(url, params=params, timeout=5)
             if resp.status_code != 200:
