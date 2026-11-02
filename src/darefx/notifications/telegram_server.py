@@ -340,7 +340,9 @@ class TelegramServer:
             f"• *Catatan:* _{status.reason}_",
         ])
 
-        self.send_reply(chat_id, "\n".join(lines))
+        report_text = "\n".join(lines)
+        logger.info("Status report sent: Balance=%s, Equity=%s, Positions=%d", balance_str, equity_str, len(positions))
+        self.send_reply(chat_id, report_text)
 
     def _handle_news(self, chat_id: str | int) -> None:
         """Report upcoming high-impact economic news events and current freeze status."""
@@ -630,6 +632,7 @@ class TelegramServer:
                 if res.success:
                     closed_count += 1
 
+            logger.info("Closed %d/%d open positions successfully", closed_count, len(positions))
             self.send_reply(
                 chat_id,
                 f"✅ *Berhasil menutup {closed_count}/{len(positions)} posisi!*\n"
