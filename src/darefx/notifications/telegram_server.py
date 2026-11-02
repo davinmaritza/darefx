@@ -283,7 +283,9 @@ class TelegramServer:
                 connected = False
 
         if connected:
-            broker_status_str = f"🟢 ONLINE ({bridge.credentials.server} - #{bridge.credentials.login})"
+            live_srv = acc_info.server if (acc_info and getattr(acc_info, "server", None)) else bridge.credentials.server
+            live_login = acc_info.login if (acc_info and getattr(acc_info, "login", None)) else bridge.credentials.login
+            broker_status_str = f"🟢 ONLINE ({live_srv} - #{live_login})"
             balance_str = f"${balance:,.2f}"
             equity_str = f"${live_equity:,.2f}"
             floating_str = f"{'+' if total_floating_pnl >= 0 else ''}${total_floating_pnl:,.2f}"

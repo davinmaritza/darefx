@@ -243,16 +243,36 @@ class MT5Bridge:
             if acc and acc.login == self.credentials.login:
                 logger.info("Active MT5 session verified for account %d on %s", acc.login, acc.server)
             elif self.credentials.password:
-                authorized = mt5.login(
-                    login=self.credentials.login,
-                    password=self.credentials.password,
-                    server=self.credentials.server,
-                    timeout=5000,
-                )
+                candidate_servers = [self.credentials.server]
+                if "_" in self.credentials.server:
+                    candidate_servers.append(self.credentials.server.replace("_", "-"))
+                elif "-" in self.credentials.server:
+                    candidate_servers.append(self.credentials.server.replace("-", "_"))
+                for alt in [self.credentials.server.replace("_", ""), self.credentials.server.replace("-", "")]:
+                    if alt not in candidate_servers:
+                        candidate_servers.append(alt)
+
+                authorized = False
+                last_err = None
+                successful_server = self.credentials.server
+                for srv in candidate_servers:
+                    authorized = mt5.login(
+                        login=self.credentials.login,
+                        password=self.credentials.password,
+                        server=srv,
+                        timeout=10000,
+                    )
+                    if authorized:
+                        successful_server = srv
+                        logger.info("MetaTrader5 authenticated on server: %s (Account: %d)", srv, self.credentials.login)
+                        break
+                    last_err = mt5.last_error()
+                    logger.warning("Login attempt on server '%s' failed: %s", srv, last_err)
+
                 if not authorized:
-                    err = mt5.last_error()
-                    self.last_error = f"Login failed for account {self.credentials.login} on {self.credentials.server}: {err}"
-                    logger.error("MetaTrader5 login failed for account %d: %s", self.credentials.login, err)
+                    err = last_err or mt5.last_error()
+                    self.last_error = f"Login failed for account {self.credentials.login} on {candidate_servers}: {err}"
+                    logger.error("MetaTrader5 login failed for account %d across servers %s: %s", self.credentials.login, candidate_servers, err)
                     return False
             elif acc:
                 logger.info("Active MT5 account %d on %s accepted without credentials override.", acc.login, acc.server)
