@@ -1,7 +1,17 @@
 # PowerShell script to create a clean Desktop Shortcut for DareFX GUI using pythonw.exe
 $WshShell = New-Object -ComObject WScript.Shell
-$DesktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
-$ShortcutPath = Join-Path $DesktopPath "DareFX Trading Terminal.lnk"
+$DesktopCandidates = @()
+$SpecialDesktop = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
+if (![string]::IsNullOrWhiteSpace($SpecialDesktop) -and (Test-Path $SpecialDesktop)) {
+    $DesktopCandidates += $SpecialDesktop
+}
+if (Test-Path "C:\Users\davin\Desktop") {
+    $DesktopCandidates += "C:\Users\davin\Desktop"
+}
+if (Test-Path "C:\Users\Public\Desktop") {
+    $DesktopCandidates += "C:\Users\Public\Desktop"
+}
+$DesktopCandidates = $DesktopCandidates | Select-Object -Unique
 
 $ProjectRoot = "C:\DareFX"
 $TargetScript = Join-Path $ProjectRoot "app.py"
@@ -19,12 +29,13 @@ if (Test-Path $VenvPythonW) {
         $PythonW = "pythonw.exe"
     }
 }
-
-$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
-$Shortcut.TargetPath = $PythonW
-$Shortcut.Arguments = "`"$TargetScript`""
-$Shortcut.WorkingDirectory = $ProjectRoot
-$Shortcut.Description = "DareFX Quantitative AI Trading Terminal"
-$Shortcut.Save()
-
-Write-Host "✅ Desktop shortcut created successfully at: $ShortcutPath"
+foreach ($DesktopPath in $DesktopCandidates) {
+    $ShortcutPath = Join-Path $DesktopPath "DareFX Trading Terminal.lnk"
+    $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+    $Shortcut.TargetPath = $PythonW
+    $Shortcut.Arguments = "`"$TargetScript`""
+    $Shortcut.WorkingDirectory = $ProjectRoot
+    $Shortcut.Description = "DareFX Quantitative AI Trading Terminal"
+    $Shortcut.Save()
+    Write-Host "✅ Desktop shortcut created successfully at: $ShortcutPath"
+}
