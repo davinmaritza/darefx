@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QThread, Qt
-from PySide6.QtGui import QAction, QCloseEvent, QIcon, QPixmap
+from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -110,6 +111,15 @@ class DareFXMainWindow(QMainWindow):
         self.settings_btn = QPushButton("⚙️ Pengaturan")
         self.settings_btn.clicked.connect(self._open_settings)
         header_layout.addWidget(self.settings_btn)
+
+        self.exit_btn = QPushButton("🚪 Keluar")
+        self.exit_btn.setProperty("class", "dangerBtn")
+        self.exit_btn.setToolTip("Tutup dan keluar dari aplikasi (Ctrl+Q)")
+        self.exit_btn.clicked.connect(self._force_quit)
+        header_layout.addWidget(self.exit_btn)
+
+        # Global shortcut Ctrl+Q to quit
+        QShortcut(QKeySequence("Ctrl+Q"), self, self._force_quit)
 
         root_layout.addLayout(header_layout)
 
@@ -253,22 +263,18 @@ class DareFXMainWindow(QMainWindow):
         dlg.exec()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Minimize to tray instead of quitting."""
-        if self.tray_icon and self.tray_icon.isVisible():
-            self.hide()
-            self.tray_icon.showMessage(
-                "DareFX Trading Terminal",
-                "Aplikasi berjalan di background (System Tray). Bot tetap mengawal order Anda.",
-                QSystemTrayIcon.MessageIcon.Information,
-                2000,
-            )
-            event.ignore()
-        else:
-            self._force_quit()
-            event.accept()
+        """Close window and cleanly terminate application."""
+        self._force_quit()
+        event.accept()
 
     def _force_quit(self) -> None:
-        self.worker.stop_polling()
-        self.thread.quit()
-        self.thread.wait(2000)
-        self.close()
+        """Terminate worker threads, hide tray, and exit application cleanly."""
+        try:
+            if self.tray_icon:
+                self.tray_icon.hide()
+            self.worker.stop_polling()
+            self.thread.quit()
+            self.thread.wait(1000)
+        except Exception:
+            pass
+        QApplication.quit()

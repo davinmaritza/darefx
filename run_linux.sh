@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -e
 
 # DareFX Desktop GUI Launcher for Linux Mint
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
