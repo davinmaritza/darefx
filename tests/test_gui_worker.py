@@ -1,8 +1,11 @@
 import os
 import pytest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
-from PySide6.QtCore import QCoreApplication
-from darefx.gui.worker import TradingEngineWorker
+try:
+    from PySide6.QtCore import QCoreApplication
+    from darefx.gui.worker import TradingEngineWorker
+except ImportError as err:
+    pytest.skip(f"PySide6/Qt GUI libraries unavailable: {err}", allow_module_level=True)
 
 @pytest.fixture(scope="module")
 def qapp():

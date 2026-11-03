@@ -3,9 +3,12 @@ import tempfile
 from pathlib import Path
 import pytest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
-from PySide6.QtCore import QCoreApplication
-from PySide6.QtWidgets import QApplication
-from darefx.gui.components.settings_dialog import SettingsDialog, load_env_values, save_env_values
+try:
+    from PySide6.QtCore import QCoreApplication
+    from PySide6.QtWidgets import QApplication
+    from darefx.gui.components.settings_dialog import SettingsDialog, load_env_values, save_env_values
+except ImportError as err:
+    pytest.skip(f"PySide6/Qt GUI libraries unavailable: {err}", allow_module_level=True)
 
 @pytest.fixture(scope="module")
 def qapp():

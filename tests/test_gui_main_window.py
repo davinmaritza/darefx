@@ -1,8 +1,11 @@
 import os
 import pytest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
-from PySide6.QtWidgets import QApplication
-from darefx.gui.main_window import DareFXMainWindow
+try:
+    from PySide6.QtWidgets import QApplication
+    from darefx.gui.main_window import DareFXMainWindow
+except ImportError as err:
+    pytest.skip(f"PySide6/Qt GUI libraries unavailable: {err}", allow_module_level=True)
 
 @pytest.fixture(scope="module")
 def qapp():

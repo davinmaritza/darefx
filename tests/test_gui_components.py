@@ -2,11 +2,14 @@ import os
 from datetime import datetime, timezone
 import pytest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
-from PySide6.QtCore import QCoreApplication
-from PySide6.QtWidgets import QApplication
-from darefx.gui.components.metric_card import MetricCard
-from darefx.gui.components.positions_table import PositionsTableWidget
-from darefx.gui.components.control_panel import ControlPanelWidget
+try:
+    from PySide6.QtCore import QCoreApplication
+    from PySide6.QtWidgets import QApplication
+    from darefx.gui.components.metric_card import MetricCard
+    from darefx.gui.components.positions_table import PositionsTableWidget
+    from darefx.gui.components.control_panel import ControlPanelWidget
+except ImportError as err:
+    pytest.skip(f"PySide6/Qt GUI libraries unavailable: {err}", allow_module_level=True)
 from darefx.trading.mt5_bridge import Position
 
 @pytest.fixture(scope="module")
