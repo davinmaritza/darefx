@@ -27,9 +27,11 @@ jobs:
         run: |
           uv venv .venv
           source .venv/bin/activate
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[dev,gui]"
 
       - name: Run Pytest Test Suite
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
           source .venv/bin/activate
           pytest tests/ -v
