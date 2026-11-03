@@ -171,6 +171,7 @@ class DareFXMainWindow(QMainWindow):
         root_layout.addWidget(body_splitter)
 
     def _setup_system_tray(self) -> None:
+        self.tray_icon = QSystemTrayIcon(self)
         logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo" / "darefx-app.png"
         if not logo_path.exists():
             logo_path = Path("assets/logo/darefx-app.png")
