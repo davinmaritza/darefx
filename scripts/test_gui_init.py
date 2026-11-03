@@ -26,10 +26,10 @@ except Exception:
     traceback.print_exc()
     sys.exit(1)
 
-print("4. Instantiating DareFXMainWindow (simulation=True)...")
+print("4. Instantiating DareFXMainWindow (simulation=False)...")
 try:
-    window = DareFXMainWindow(simulation=True)
-    print("   DareFXMainWindow instantiated successfully.")
+    window = DareFXMainWindow(simulation=False)
+    print("   DareFXMainWindow (simulation=False) instantiated successfully.")
 except Exception:
     traceback.print_exc()
     sys.exit(1)
