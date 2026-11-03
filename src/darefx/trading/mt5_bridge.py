@@ -48,6 +48,7 @@ class MT5Credentials:
     simulation_mode: bool = False
     metaapi_token: str = ""
     metaapi_account_id: str = ""
+    remote_bridge_url: str = ""
 
 
 @dataclass
@@ -89,6 +90,9 @@ class OrderResult:
     retcode: int = 0
     comment: str = ""
 
+    def __bool__(self) -> bool:
+        return self.success
+
 
 class MT5Bridge:
     """Bridge adapter mediating communication with MetaTrader 5 terminal."""
@@ -107,6 +111,7 @@ class MT5Bridge:
             simulation = os.getenv("MT5_SIMULATION", "true").lower() in ("1", "true", "yes")
             metaapi_token = os.getenv("METAAPI_TOKEN", "")
             metaapi_account_id = os.getenv("METAAPI_ACCOUNT_ID", "")
+            remote_url = os.getenv("MT5_REMOTE_URL", "")
             self.credentials = MT5Credentials(
                 login=login,
                 password=password,
@@ -115,6 +120,7 @@ class MT5Bridge:
                 simulation_mode=simulation,
                 metaapi_token=metaapi_token,
                 metaapi_account_id=metaapi_account_id,
+                remote_bridge_url=remote_url,
             )
             default_path = os.getenv("SIMULATED_STATE_FILE", "data/simulated_positions.json")
             self._state_file: Path | None = Path(state_file) if state_file else Path(default_path)
@@ -130,11 +136,22 @@ class MT5Bridge:
         self._connected = False
         self.last_error: str = ""
         self._metaapi_bridge: Any = None
+        self._remote_bridge: Any = None
+
+        # Check if Remote MT5 bridge should be utilized (local network or SSH tunnel to Windows)
+        r_url = self.credentials.remote_bridge_url or os.getenv("MT5_REMOTE_URL", "")
+        if not self.credentials.simulation_mode and r_url:
+            try:
+                from darefx.trading.remote_bridge import RemoteBridge
+                self._remote_bridge = RemoteBridge(base_url=r_url)
+                logger.info("Initialized Remote MT5 Bridge at %s", r_url)
+            except Exception as err:
+                logger.warning("Failed to initialize Remote MT5 bridge: %s", err)
 
         # Check if MetaApi cloud bridge should be utilized
         m_tok = self.credentials.metaapi_token or os.getenv("METAAPI_TOKEN", "")
         m_acc = self.credentials.metaapi_account_id or os.getenv("METAAPI_ACCOUNT_ID", "")
-        if not self.credentials.simulation_mode and m_tok and m_acc:
+        if not self.credentials.simulation_mode and not self._remote_bridge and m_tok and m_acc:
             try:
                 from darefx.trading.metaapi_bridge import MetaApiBridge
                 self._metaapi_bridge = MetaApiBridge(token=m_tok, account_id=m_acc)
@@ -215,6 +232,11 @@ class MT5Bridge:
         """Initialize connection to MetaTrader 5."""
         if self._connected:
             return True
+
+        if self._remote_bridge:
+            logger.info("Connecting to MT5 broker via Remote Bridge...")
+            self._connected = self._remote_bridge.connect()
+            return self._connected
 
         if self._metaapi_bridge:
             logger.info("Connecting to MT5 broker via MetaApi Cloud Bridge...")
@@ -316,6 +338,11 @@ class MT5Bridge:
 
     def disconnect(self) -> None:
         """Disconnect and terminate MT5 bridge session."""
+        if self._remote_bridge:
+            self._remote_bridge.disconnect()
+            self._connected = False
+            return
+
         if self._metaapi_bridge:
             self._metaapi_bridge.disconnect()
             self._connected = False
@@ -330,6 +357,9 @@ class MT5Bridge:
         """Fetch real-time account capital and margin statistics."""
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if self._remote_bridge:
+            return self._remote_bridge.get_account_info()
 
         if self._metaapi_bridge:
             return self._metaapi_bridge.get_account_info()
@@ -371,6 +401,9 @@ class MT5Bridge:
         """Query currently active open positions."""
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if self._remote_bridge:
+            return self._remote_bridge.get_positions(symbol=symbol)
 
         if self._metaapi_bridge:
             return self._metaapi_bridge.get_positions(symbol=symbol)
@@ -425,6 +458,18 @@ class MT5Bridge:
         """Submit a protective market order with stop-loss and take-profit."""
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if self._remote_bridge:
+            return self._remote_bridge.send_market_order(
+                symbol=symbol,
+                action=action,
+                volume=volume,
+                sl=sl,
+                tp=tp,
+                current_price=current_price,
+                deviation_pips=deviation_pips,
+                comment=comment,
+            )
 
         if self._metaapi_bridge:
             return self._metaapi_bridge.send_market_order(
@@ -540,6 +585,10 @@ class MT5Bridge:
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
 
+        if self._remote_bridge:
+            success = self._remote_bridge.close_position(ticket=ticket)
+            return OrderResult(success=success, ticket=ticket)
+
         if self._metaapi_bridge:
             return self._metaapi_bridge.close_position(ticket=ticket, close_price=close_price)
 
@@ -635,6 +684,9 @@ class MT5Bridge:
         """Query active open positions from MT5 or simulation."""
         if not self._connected:
             raise ConnectionError("MT5Bridge is not connected. Call connect() first.")
+
+        if self._remote_bridge:
+            return self._remote_bridge.get_positions(symbol=symbol)
 
         if not HAS_MT5_PACKAGE or self.credentials.simulation_mode:
             positions = list(self._simulated_positions.values())
