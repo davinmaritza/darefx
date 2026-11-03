@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QThread, Qt
-from PySide6.QtGui import QAction, QCloseEvent, QIcon
+from PySide6.QtGui import QAction, QCloseEvent, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -46,6 +46,13 @@ class DareFXMainWindow(QMainWindow):
         self.env_path = env_path or Path(".env")
         self.tray_icon: QSystemTrayIcon | None = None
 
+        # Set application and window icon
+        logo_icon_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo" / "darefx-app.png"
+        if not logo_icon_path.exists():
+            logo_icon_path = Path("assets/logo/darefx-app.png")
+        if logo_icon_path.exists():
+            self.setWindowIcon(QIcon(str(logo_icon_path)))
+
         # Worker & Background Thread
         self.thread = QThread()
         self.worker = TradingEngineWorker(simulation=simulation)
@@ -69,9 +76,23 @@ class DareFXMainWindow(QMainWindow):
         root_layout.setContentsMargins(16, 14, 16, 14)
         root_layout.setSpacing(12)
 
-        # 1. Header Toolbar
+        # 1. Header Toolbar with Logo Mark
         header_layout = QHBoxLayout()
+        header_layout.setSpacing(12)
+
+        logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo" / "darefx-app.png"
+        if not logo_path.exists():
+            logo_path = Path("assets/logo/darefx-app.png")
+        if logo_path.exists():
+            logo_label = QLabel()
+            pixmap = QPixmap(str(logo_path)).scaled(
+                40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+            )
+            logo_label.setPixmap(pixmap)
+            header_layout.addWidget(logo_label)
+
         title_box = QVBoxLayout()
+        title_box.setSpacing(2)
         app_title = QLabel("DareFX Quantitative Trading Station")
         app_title.setStyleSheet(f"font-size: 16px; font-weight: 800; color: {ThemeColors.TEXT_PRIMARY};")
         subtitle = QLabel("EUR/USD Triple-Barrier AI Execution Engine")
@@ -150,9 +171,13 @@ class DareFXMainWindow(QMainWindow):
         root_layout.addWidget(body_splitter)
 
     def _setup_system_tray(self) -> None:
-        """Create system tray icon and background minimize support."""
-        self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+        logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo" / "darefx-app.png"
+        if not logo_path.exists():
+            logo_path = Path("assets/logo/darefx-app.png")
+        if logo_path.exists():
+            self.tray_icon.setIcon(QIcon(str(logo_path)))
+        else:
+            self.tray_icon.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
         self.tray_icon.setToolTip("DareFX Trading Station (Running)")
 
         menu = QMenu()

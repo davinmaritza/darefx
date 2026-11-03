@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 88" width="480" height="88">
+  <defs>
+    <linearGradient id="lhSpine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="lhAlpha" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="lhFx" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon (X: 4, Y: 8, 72x72) -->
+  <g transform="translate(4, 8)">
+    <rect x="0" y="0" width="72" height="72" rx="18" ry="18" fill="#0F172A"/>
+    <g transform="translate(6, 6) scale(0.117)">
+      <path d="M 124 132 C 124 121 133 112 144 112 L 176 112 C 187 112 196 121 196 132 L 196 380 C 196 391 187 400 176 400 L 144 400 C 133 400 124 391 124 380 Z" fill="url(#lhSpine)"/>
+      <path d="M 196 112 L 290 112 C 342 112 388 154 388 208 C 388 238 374 266 352 284 L 388 322 L 344 366 L 302 324 L 250 324 L 250 400 L 196 400 Z" fill="#3B82F6"/>
+      <path d="M 196 168 L 278 168 C 308 168 332 192 332 222 C 332 252 308 276 278 276 L 196 276 Z" fill="#0F172A"/>
+      <path d="M 284 140 L 404 260 L 362 302 L 284 224 L 206 302 L 164 260 Z" fill="url(#lhAlpha)"/>
+      <rect x="278" y="104" width="12" height="42" rx="6" fill="#34D399"/>
+    </g>
+  </g>
+
+  <!-- Text -->
+  <g transform="translate(92, 45)">
+    <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" letter-spacing="1.5" fill="#0F172A">DARE</text>
+    <text x="96" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" letter-spacing="1.5" fill="url(#lhFx)">FX</text>
+    <text x="1" y="21" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="9.5" font-weight="700" letter-spacing="3" fill="#64748B">QUANTITATIVE AI TRADING</text>
+  </g>
+</svg>

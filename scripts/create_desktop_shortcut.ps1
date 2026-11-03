@@ -36,6 +36,10 @@ foreach ($DesktopPath in $DesktopCandidates) {
     $Shortcut.Arguments = "`"$TargetScript`""
     $Shortcut.WorkingDirectory = $ProjectRoot
     $Shortcut.Description = "DareFX Quantitative AI Trading Terminal"
+    $IconPath = Join-Path $ProjectRoot "assets\logo\darefx-app.ico"
+    if (Test-Path $IconPath) {
+        $Shortcut.IconLocation = "$IconPath,0"
+    }
     $Shortcut.Save()
     Write-Host "✅ Desktop shortcut created successfully at: $ShortcutPath"
 }

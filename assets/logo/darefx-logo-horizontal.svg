@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320">
+  <defs>
+    <linearGradient id="hBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0F19"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+
+    <linearGradient id="hSpineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+
+    <linearGradient id="hArcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="50%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+
+    <linearGradient id="hAlphaGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="50%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+
+    <linearGradient id="fxGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+
+    <filter id="hGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- LOGOMARK (X: 40, Y: 40, 240x240) -->
+  <g transform="translate(40, 40)">
+    <!-- Squircle Card -->
+    <rect x="0" y="0" width="240" height="240" rx="56" ry="56" fill="url(#hBgGrad)" stroke="#1E293B" stroke-width="2"/>
+    
+    <!-- Grid -->
+    <g opacity="0.08" stroke="#94A3B8" stroke-width="1">
+      <line x1="30" y1="120" x2="210" y2="120" stroke-dasharray="3,5"/>
+      <line x1="120" y1="30" x2="120" y2="210" stroke-dasharray="3,5"/>
+    </g>
+
+    <!-- Scaled Mark -->
+    <g transform="translate(18, 18) scale(0.4)">
+      <!-- Left Spine -->
+      <path d="M 124 132 C 124 121 133 112 144 112 L 176 112 C 187 112 196 121 196 132 L 196 380 C 196 391 187 400 176 400 L 144 400 C 133 400 124 391 124 380 Z" fill="url(#hSpineGrad)"/>
+
+      <!-- Outer Arc -->
+      <path d="M 196 112 L 290 112 C 342 112 388 154 388 208 C 388 238 374 266 352 284 L 388 322 L 344 366 L 302 324 L 250 324 L 250 400 L 196 400 Z" fill="url(#hArcGrad)"/>
+
+      <!-- Inner Counter -->
+      <path d="M 196 168 L 278 168 C 308 168 332 192 332 222 C 332 252 308 276 278 276 L 196 276 Z" fill="#0B0F19"/>
+
+      <!-- Ascending Chevron -->
+      <g filter="url(#hGlow)">
+        <path d="M 284 140 L 404 260 L 362 302 L 284 224 L 206 302 L 164 260 Z" fill="url(#hAlphaGrad)"/>
+        <rect x="278" y="104" width="12" height="42" rx="6" fill="#34D399"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- TYPOGRAPHY / WORDMARK -->
+  <g transform="translate(320, 160)">
+    <!-- "DARE" in Sharp Heavy Technical Sans -->
+    <text x="0" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-size="112" font-weight="900" letter-spacing="4" fill="#0F172A">DARE</text>
+
+    <!-- "FX" in High-Alpha Emerald Accent -->
+    <text x="328" y="10" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-size="112" font-weight="900" letter-spacing="4" fill="url(#fxGrad)">FX</text>
+
+    <!-- Subtitle / Positioning Tagline -->
+    <text x="4" y="68" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" 
+          font-size="22" font-weight="700" letter-spacing="9" fill="#64748B">QUANTITATIVE AI TRADING STATION</text>
+
+    <!-- Precision Execution Accent Badges -->
+    <g transform="translate(510, -58)">
+      <rect x="0" y="0" width="116" height="30" rx="15" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1.5"/>
+      <circle cx="16" cy="15" r="5" fill="#10B981"/>
+      <text x="28" y="21" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="800" fill="#047857" letter-spacing="1">INSTITUTIONAL</text>
+    </g>
+  </g>
+</svg>
