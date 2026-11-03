@@ -1,11 +1,16 @@
-# DareFX
+<p align="center">
+  <img src="assets/logo/darefx-logo-horizontal.png" alt="DareFX Quantitative Trading Station" width="720"/>
+</p>
 
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![CI Workflow](https://img.shields.io/badge/tests-45%20passed-brightgreen.svg)](https://github.com/davinmaritza/darefx/actions)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://github.com/davinmaritza/darefx/blob/main/LICENSE)
-[![Quantitative Finance](https://img.shields.io/badge/quant-López%20de%20Prado-orange.svg)](https://github.com/davinmaritza/darefx/blob/main/docs/ARCHITECTURE.md)
+<p align="center">
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python 3.12"/></a>
+  <a href="https://github.com/davinmaritza/darefx/actions"><img src="https://img.shields.io/badge/tests-75%20passed-brightgreen.svg" alt="Tests 75 Passed"/></a>
+  <a href="https://github.com/davinmaritza/darefx/releases"><img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version 1.0.0"/></a>
+  <a href="https://github.com/davinmaritza/darefx/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="License MIT"/></a>
+  <a href="https://github.com/davinmaritza/darefx/blob/main/docs/ARCHITECTURE.md"><img src="https://img.shields.io/badge/quant-López%20de%20Prado-orange.svg" alt="Quant Architecture"/></a>
+</p>
 
-**DareFX** is an institutional-grade, autonomous machine learning auto-trading engine engineered for daily swing trading on the EUR/USD forex currency pair.
+**DareFX** is an institutional-grade, autonomous machine learning auto-trading engine and native desktop trading station engineered for daily swing trading on the EUR/USD forex currency pair.
 
 The system combines supervised learning (LightGBM / XGBoost) with Marcos López de Prado's Triple Barrier Method, Purged Walk-Forward Cross-Validation, and Deflated Sharpe Ratio (DSR) statistical testing. Under the autonomous operating model, human intervention is strictly limited to broker deposits and capital allocation; DareFX autonomously executes 100% of data ingestion, feature extraction, inference, position sizing, order execution, and protective exits.
 
@@ -70,8 +75,26 @@ uv venv --python 3.12 .venv
 source .venv/bin/activate
 uv pip install -e ".[dev]"
 
-# Run test suite (45 unit & integration tests)
+# Run test suite (75 unit & integration tests)
 pytest -v
+```
+
+---
+
+## Native Desktop GUI Terminal
+
+DareFX includes an enterprise-grade banking minimalist native desktop GUI (built with PySide6 / Qt):
+- **Real-Time Financial Cards**: Live Balance, Equity, Margin, and Floating PnL.
+- **Active Positions Table**: Live order tickets with automatic Break-Even (BE+) protection indicator and instant closure.
+- **Execution Controls**: Auto-Trade toggle, Emergency Panic Close with confirmation modal, Manual lot spinbox, and Instant AI Market Analysis.
+- **System Tray & Desktop Shortcut**: Seamless background operation without interrupting trades.
+
+```bash
+# Launch GUI on Linux or Windows
+python app.py
+
+# Or on Windows using launcher script
+run_gui.bat
 ```
 
 ---
