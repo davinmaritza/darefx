@@ -4,8 +4,21 @@ $DesktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFo
 $ShortcutPath = Join-Path $DesktopPath "DareFX Trading Terminal.lnk"
 
 $ProjectRoot = "C:\DareFX"
-$PythonW = Join-Path $ProjectRoot ".venv\Scripts\pythonw.exe"
 $TargetScript = Join-Path $ProjectRoot "app.py"
+
+$VenvPythonW = Join-Path $ProjectRoot ".venv\Scripts\pythonw.exe"
+if (Test-Path $VenvPythonW) {
+    $PythonW = $VenvPythonW
+} else {
+    $CmdPythonW = (Get-Command pythonw.exe -ErrorAction SilentlyContinue)
+    if ($CmdPythonW) {
+        $PythonW = $CmdPythonW.Source
+    } elseif (Test-Path "C:\Program Files\Python312\pythonw.exe") {
+        $PythonW = "C:\Program Files\Python312\pythonw.exe"
+    } else {
+        $PythonW = "pythonw.exe"
+    }
+}
 
 $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
 $Shortcut.TargetPath = $PythonW
