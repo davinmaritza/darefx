@@ -61,7 +61,33 @@ Full statistical audit report available in [`docs/EVALUATION-REPORT.md`](docs/EV
 
 ---
 
-## Quick Start
+## Downloads & Pre-compiled Binaries
+
+Standalone desktop binaries and installers are available directly from [**GitHub Releases v1.0.0**](https://github.com/davinmaritza/darefx/releases/tag/v1.0.0):
+
+| Platform | Format | Download Link | Size | Details |
+| :--- | :--- | :--- | :--- | :--- |
+| **Windows** (x86_64) | `.exe` Standalone | [**DareFX-windows-x86_64.exe**](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/DareFX-windows-x86_64.exe) | 186 MB | Native Win32 with MetaTrader 5 API integration |
+| **Linux (Debian / Ubuntu / Mint)** | `.deb` Package | [**darefx_1.0.0_amd64.deb**](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/darefx_1.0.0_amd64.deb) | 526 MB | Standard desktop package with app icon and launcher |
+| **Linux (Generic 64-bit)** | `.tar.gz` Portable | [**DareFX-linux-x86_64.tar.gz**](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/DareFX-linux-x86_64.tar.gz) | 534 MB | Self-contained portable binary bundle |
+
+### Quick Run:
+```bash
+# Windows
+# Download DareFX-windows-x86_64.exe and run
+
+# Linux Debian / Ubuntu / Linux Mint
+sudo dpkg -i darefx_1.0.0_amd64.deb
+darefx-gui
+
+# Linux Portable Tarball
+tar -xzf DareFX-linux-x86_64.tar.gz
+./DareFX
+```
+
+---
+
+## Quick Start (from Source)
 
 ### Installation
 

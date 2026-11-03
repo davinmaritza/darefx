@@ -51,7 +51,33 @@ DareFX v1.0.0 marks the official enterprise release of the autonomous machine le
 
 ---
 
-### 📦 Installation & Quick Start
+### 💾 Pre-compiled Executables & Installers
+
+Direct standalone binaries are available below and attached directly to this release:
+
+| Platform | Format | Filename | Size | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **Windows** (x86_64) | Standalone Executable | [`DareFX-windows-x86_64.exe`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/DareFX-windows-x86_64.exe) | ~186 MB | Portable Windows executable with full MetaTrader 5 API integration |
+| **Linux (Debian/Ubuntu/Mint)** | Debian Package | [`darefx_1.0.0_amd64.deb`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/darefx_1.0.0_amd64.deb) | ~526 MB | Standard Debian package with desktop launcher & system icon |
+| **Linux (Generic x86_64)** | Tarball Archive | [`DareFX-linux-x86_64.tar.gz`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/DareFX-linux-x86_64.tar.gz) | ~534 MB | Self-contained executable archive for all modern 64-bit Linux distros |
+
+#### Quick Run / Install:
+```bash
+# Windows
+# Download DareFX-windows-x86_64.exe and double-click to run
+
+# Linux (Debian / Ubuntu / Mint)
+sudo dpkg -i darefx_1.0.0_amd64.deb
+darefx-gui
+
+# Linux (Generic Portable Archive)
+tar -xzf DareFX-linux-x86_64.tar.gz
+./DareFX
+```
+
+---
+
+### 📦 Source Code Quick Start
 
 ```bash
 # Clone the repository
