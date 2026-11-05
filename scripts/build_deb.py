@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 ARCH = "amd64"
 PACKAGE_NAME = f"darefx_{VERSION}_{ARCH}"
 BUILD_DIR = Path("build/deb_pkg") / PACKAGE_NAME
@@ -40,9 +40,9 @@ Section: utils
 Priority: optional
 Architecture: {ARCH}
 Maintainer: Davin Maritza <davinmaritza@github.com>
-Description: DareFX Quantitative AI Trading Station & Native Desktop Terminal
- Institutional-grade autonomous ML forex auto-trading terminal for EUR/USD.
- Built with PySide6, LightGBM, and Marcos López de Prado Triple Barrier Method.
+Description: DareFX Quantitative AI Multi-Asset Trading Terminal
+ Institutional-grade autonomous multi-asset trading terminal for Forex, Crypto, and Equities.
+ Built with PySide6, LightGBM, CCXT, Alpaca, and Marcos López de Prado Risk Governor.
 """
     (debian_dir / "control").write_text(control_content, encoding="utf-8")
 

@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "darefx"
-version = "1.0.0"
-description = "Automated EUR/USD trading terminal and ML execution engine"
+version = "1.1.0"
+description = "Automated quantitative multi-asset trading terminal and ML execution engine"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12, <3.13"
