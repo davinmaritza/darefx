@@ -920,21 +920,37 @@ def telegram_bot() -> None:
 def web_cockpit(
     host: str = typer.Option("0.0.0.0", help="HTTP binding host"),
     port: int = typer.Option(8888, help="HTTP listening port"),
+    domain: bool = typer.Option(
+        True, "--domain/--no-domain", help="Automatically expose via Cloudflare HTTPS domain"
+    ),
+    token: str = typer.Option(None, help="Cloudflare Named Tunnel token for custom domains"),
+    custom_domain: str = typer.Option(None, help="Custom domain name (e.g. darefx.bytenodes.id)"),
 ) -> None:
-    """Launch DareFX Mobile Web Cockpit for browser and Tailscale remote access."""
+    """Launch DareFX Mobile Web Cockpit for browser, Tailscale, and HTTPS domain access."""
     import asyncio
 
     from darefx.trading.multi_scheduler import MultiScheduler
     from darefx.web.server import WebCockpitServer, get_tailscale_ip
+    from darefx.web.tunnel import CloudflareTunnel
 
     ts_ip = get_tailscale_ip()
     console.print(f"[bold cyan]Starting DareFX Mobile Web Cockpit on {host}:{port}...[/bold cyan]")
     console.print(f"[bold green]Local access:      http://127.0.0.1:{port}[/bold green]")
     console.print(f"[bold blue]Tailscale access:  http://{ts_ip}:{port}[/bold blue]")
+
+    tunnel = None
+    pub_url = None
+    if domain:
+        console.print("[yellow]Acquiring secure Cloudflare HTTPS domain tunnel...[/yellow]")
+        tunnel = CloudflareTunnel(local_port=port, token=token, custom_domain=custom_domain)
+        pub_url = tunnel.start()
+        if pub_url:
+            console.print(f"[bold magenta]Public Domain:     {pub_url}[/bold magenta]")
+
     console.print("[yellow]Press Ctrl+C to terminate.[/yellow]")
 
     scheduler = MultiScheduler()
-    server = WebCockpitServer(host=host, port=port, scheduler=scheduler)
+    server = WebCockpitServer(host=host, port=port, scheduler=scheduler, public_domain=pub_url)
 
     async def _main() -> None:
         await server.start()
@@ -945,6 +961,8 @@ def web_cockpit(
             pass
         finally:
             await server.stop()
+            if tunnel:
+                tunnel.stop()
 
     try:
         asyncio.run(_main())
@@ -963,6 +981,11 @@ app.add_typer(daemon_app, name="daemon")
 def daemon_start(
     foreground: bool = typer.Option(False, "--foreground", "-f", help="Run daemon in foreground"),
     port: int = typer.Option(8888, help="Web Cockpit listening port"),
+    domain: bool = typer.Option(
+        True, "--domain/--no-domain", help="Enable public HTTPS Cloudflare domain"
+    ),
+    token: str = typer.Option(None, help="Cloudflare Tunnel Token for custom domains"),
+    custom_domain: str = typer.Option(None, help="Custom domain name"),
 ) -> None:
     """Start 24/7 multi-asset trading daemon."""
     import subprocess
@@ -970,7 +993,12 @@ def daemon_start(
 
     from darefx.trading.daemon import DaemonConfig, DareFXDaemon
 
-    cfg = DaemonConfig(web_port=port)
+    cfg = DaemonConfig(
+        web_port=port,
+        enable_tunnel=domain,
+        tunnel_token=token,
+        custom_domain=custom_domain,
+    )
     daemon = DareFXDaemon(config=cfg)
 
     existing_pid = daemon.get_running_pid()
@@ -985,17 +1013,25 @@ def daemon_start(
         console.print(
             "[bold cyan]Launching DareFX 24/7 Daemon in detached background mode...[/bold cyan]"
         )
+        cmd_args = [
+            sys.executable,
+            "-m",
+            "darefx.cli",
+            "daemon",
+            "start",
+            "--foreground",
+            "--port",
+            str(port),
+        ]
+        if not domain:
+            cmd_args.append("--no-domain")
+        if token:
+            cmd_args.extend(["--token", token])
+        if custom_domain:
+            cmd_args.extend(["--custom-domain", custom_domain])
+
         proc = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "darefx.cli",
-                "daemon",
-                "start",
-                "--foreground",
-                "--port",
-                str(port),
-            ],
+            cmd_args,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
@@ -1041,6 +1077,9 @@ def daemon_status() -> None:
         table.add_row("Uptime", f"{st.get('uptime_sec', 0)} seconds")
         table.add_row("Memory RSS", f"{st.get('memory_mb', 0)} MB")
         table.add_row("Open Positions", str(st.get("open_positions", 0)))
+        pub_d = st.get("public_domain")
+        if pub_d:
+            table.add_row("Public HTTPS Domain", f"[bold cyan]{pub_d}[/bold cyan]")
         table.add_row("Tailscale Endpoint", f"http://{st.get('tailscale_ip')}:8888")
     else:
         table.add_row("Status", "[bold red]OFFLINE (STOPPED)[/bold red]")

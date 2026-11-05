@@ -56,10 +56,12 @@ class WebCockpitServer:
         host: str = "0.0.0.0",
         port: int = 8888,
         scheduler: MultiScheduler | None = None,
+        public_domain: str | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.scheduler = scheduler or MultiScheduler()
+        self.public_domain = public_domain
         self.app = web.Application()
         self.runner: web.AppRunner | None = None
         self.site: web.TCPSite | None = None
@@ -144,6 +146,7 @@ class WebCockpitServer:
                 "cpu_percent": cpu_pct,
                 "memory_percent": mem.percent,
                 "tailscale_ip": get_tailscale_ip(),
+                "public_domain": self.public_domain,
                 "timestamp": now_utc.isoformat(),
             },
         })
@@ -237,13 +240,18 @@ class WebCockpitServer:
     async def handle_index(self, request: web.Request) -> web.Response:
         """Render the responsive HTML5 Cockpit Dashboard."""
         ts_ip = get_tailscale_ip()
+        pub_domain = self.public_domain or f"http://{ts_ip}:{self.port}"
+        pub_display = pub_domain.replace("https://", "").replace("http://", "").rstrip("/")
+
         template_path = Path(__file__).parent / "templates" / "cockpit.html"
         if template_path.exists():
             html_content = template_path.read_text(encoding="utf-8")
             html_content = html_content.replace("{{TAILSCALE_IP}}", ts_ip)
+            html_content = html_content.replace("{{PUBLIC_DOMAIN}}", pub_domain)
+            html_content = html_content.replace("{{PUBLIC_DOMAIN_DISPLAY}}", pub_display)
         else:
             html_content = (
-                f"<html><body><h1>DareFX Cockpit</h1><p>Tailscale: {ts_ip}</p></body></html>"
+                f"<html><body><h1>DareFX Cockpit</h1><p>Domain: {pub_domain}</p></body></html>"
             )
         return web.Response(text=html_content, content_type="text/html")
 

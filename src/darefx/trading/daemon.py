@@ -28,6 +28,7 @@ import psutil
 from darefx.notifications.telegram import TelegramNotifier
 from darefx.trading.multi_scheduler import MultiScheduler
 from darefx.web.server import WebCockpitServer, get_tailscale_ip
+from darefx.web.tunnel import CloudflareTunnel
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,9 @@ class DaemonConfig:
     enable_web: bool = True
     web_host: str = "0.0.0.0"
     web_port: int = 8888
+    enable_tunnel: bool = True
+    tunnel_token: str | None = None
+    custom_domain: str | None = None
     watchdog_interval_sec: int = 30
     max_memory_mb: float = 1500.0
     pid_dir: Path = field(default_factory=lambda: Path.home() / ".darefx")
@@ -65,6 +69,7 @@ class DareFXDaemon:
         self.notifier = notifier or TelegramNotifier()
         self.scheduler = scheduler or MultiScheduler(notifier=self.notifier)
         self.web_server: WebCockpitServer | None = None
+        self.tunnel: CloudflareTunnel | None = None
         self._stop_event = threading.Event()
         self._start_time: float = 0.0
         self._web_loop: asyncio.AbstractEventLoop | None = None
@@ -96,10 +101,12 @@ class DareFXDaemon:
 
     def start_web_server(self) -> None:
         """Launch the aiohttp Web Cockpit in a dedicated background thread."""
+        pub_domain = self.tunnel.public_url if self.tunnel else None
         self.web_server = WebCockpitServer(
             host=self.config.web_host,
             port=self.config.web_port,
             scheduler=self.scheduler,
+            public_domain=pub_domain,
         )
 
         def _run_web() -> None:
@@ -149,16 +156,33 @@ class DareFXDaemon:
         # 1. Start MultiScheduler
         self.scheduler.start()
 
-        # 2. Start Web Cockpit if enabled
+        # 2. Start Cloudflare Tunnel if enabled
+        if self.config.enable_tunnel:
+            try:
+                self.tunnel = CloudflareTunnel(
+                    local_port=self.config.web_port,
+                    token=self.config.tunnel_token,
+                    custom_domain=self.config.custom_domain,
+                )
+                pub_url = self.tunnel.start()
+                if pub_url:
+                    logger.info("Public HTTPS Domain active: %s", pub_url)
+            except Exception as err:
+                logger.warning("Could not establish Cloudflare Tunnel: %s", err)
+
+        # 3. Start Web Cockpit if enabled
         if self.config.enable_web:
             self.start_web_server()
 
-        # 3. Notify via Telegram
+        # 4. Notify via Telegram
         ts_ip = get_tailscale_ip()
+        pub_domain = self.tunnel.public_url if self.tunnel else None
+        domain_line = f"• Public Domain: `{pub_domain}`\n" if pub_domain else ""
         start_msg = (
             "🚀 *DareFX 24/7 Autonomous Daemon Started*\n"
             f"• Mode: Multi-Asset (Forex, Crypto, US Stocks)\n"
-            f"• Web Cockpit: `http://{ts_ip}:{self.config.web_port}`\n"
+            f"{domain_line}"
+            f"• Tailscale IP: `http://{ts_ip}:{self.config.web_port}`\n"
             f"• Host PID: `{os.getpid()}`\n"
             f"• Time: `{datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}`"
         )
@@ -167,9 +191,11 @@ class DareFXDaemon:
         except Exception as err:
             logger.debug("Failed sending Telegram daemon start alert: %s", err)
 
+        if pub_domain:
+            logger.info("DareFX Web Cockpit available at %s", pub_domain)
         logger.info("DareFX Daemon running in foreground. Press Ctrl+C to terminate.")
 
-        # 4. Watchdog loop
+        # 5. Watchdog loop
         try:
             while not self._stop_event.is_set():
                 self._run_watchdog_tick()
@@ -190,6 +216,7 @@ class DareFXDaemon:
 
         positions = self.scheduler.get_all_active_positions()
         uptime = int(time.time() - self._start_time)
+        pub_domain = self.tunnel.public_url if self.tunnel else None
 
         status_data = {
             "pid": os.getpid(),
@@ -198,6 +225,7 @@ class DareFXDaemon:
             "memory_mb": round(mem_mb, 1),
             "open_positions": len(positions),
             "scheduler_alive": self.scheduler.is_running,
+            "public_domain": pub_domain,
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
@@ -211,6 +239,8 @@ class DareFXDaemon:
     def _cleanup(self) -> None:
         """Cleanly dispose resources and alert Telegram."""
         logger.info("Executing clean daemon termination...")
+        if self.tunnel:
+            self.tunnel.stop()
         self.stop_web_server()
         self.scheduler.stop()
         self.remove_pid()

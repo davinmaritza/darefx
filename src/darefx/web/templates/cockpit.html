@@ -48,11 +48,14 @@
       </div>
     </div>
 
-    <!-- CONNECTION & TAILSCALE BADGE -->
-    <div class="flex items-center gap-2">
+    <!-- CONNECTION, DOMAIN & TAILSCALE BADGES -->
+    <div class="flex flex-wrap items-center gap-2">
       <div id="conn-badge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         <span id="conn-text">LIVE</span>
+      </div>
+      <div id="domain-badge" class="px-2.5 py-1 rounded-full text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/30 flex items-center gap-1">
+        <span>🌐</span> <a href="{{PUBLIC_DOMAIN}}" target="_blank" class="hover:underline font-semibold">{{PUBLIC_DOMAIN_DISPLAY}}</a>
       </div>
       <div class="px-2.5 py-1 rounded-full text-xs font-mono bg-slate-800 text-slate-300 border border-slate-700">
         TS: <span class="text-blue-400">{{TAILSCALE_IP}}</span>
