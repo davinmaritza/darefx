@@ -1,3 +1,36 @@
+# DareFX v1.1.0
+
+DareFX v1.1.0 introduces multi-asset quantitative trading across Forex (MetaTrader 5), Crypto (CCXT / Binance, Bybit, OKX), and Equities (Alpaca API), coordinated by a centralized portfolio risk governor and an institutional-grade PySide6 candlestick charting suite.
+
+---
+
+### Highlights
+
+#### Multi-Asset Execution Engine
+- **Crypto Integration (CCXT)**: Spot and perpetual futures connectivity across Binance, Bybit, and OKX with automatic fallback to simulated execution when exchange API credentials are not provided.
+- **Stock & Equities Integration (Alpaca)**: Paper and live trading support for US equity markets with fractional share support and balance telemetry.
+- **Unified Multi-Asset Scheduler**: Centralized execution coordinator (`darefx run-multi`) orchestrating asynchronous evaluation cycles for daily Forex, H4 Crypto, and US stock market sessions.
+
+#### Cross-Portfolio Risk Governor
+- **Global & Asset-Specific Quotas**: Caps simultaneous exposure across all asset classes (default max 5 positions, max 2 per asset class) and strictly limits total portfolio risk to 5.0% of equity.
+- **Hedging & Direction Invariant**: Blocks conflicting opposite-direction trades on the same instrument and deduplicates multi-source signal collisions.
+- **Greedy Priority Queue**: Allocates available capital slots to highest-confidence setups when multiple asset classes trigger simultaneous trade candidates.
+
+#### Institutional Interactive Candlestick Chart (PySide6)
+- **60fps Native QPainter Engine**: High-performance canvas rendering wicks, bodies, and color-coded bull (`#10B981`) and bear (`#EF4444`) candles.
+- **Technical Overlays**: Real-time EMA-20 and EMA-50 curve rendering with synchronized volume bar histogram subplot.
+- **Crosshair & Navigation**: Interactive crosshair with real-time price/time HUD coordinates, mouse wheel zoom in/out, and smooth mouse drag panning.
+- **Screener Routing**: Double-clicking any asset row in the screener table immediately loads historical price data into the chart tab.
+
+#### Multi-Platform Packaging & Release Binaries
+Pre-compiled standalone packages are attached directly to this release:
+- `DareFX-windows-x86_64.exe`: Standalone 64-bit Windows executable with native Win32 MetaTrader 5 API support.
+- `DareFX-1.1.0-x86_64.AppImage`: Universal portable Linux executable with bundled PySide6 Qt6 libraries.
+- `darefx_1.1.0_amd64.deb`: Debian, Ubuntu, and Linux Mint installer package with system application menu integration.
+- `DareFX-1.1.0-linux-x86_64.tar.gz`: Portable standalone Linux x86_64 bundle.
+
+---
+
 # DareFX v1.0.0
 
 DareFX v1.0.0 is the initial stable release of the automated EUR/USD trading terminal and ML execution engine.
