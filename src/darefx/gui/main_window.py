@@ -32,6 +32,7 @@ from darefx.gui.components.metric_card import MetricCard
 from darefx.gui.components.positions_table import PositionsTableWidget
 from darefx.gui.components.screener_table import ScreenerTableWidget
 from darefx.gui.components.settings_dialog import SettingsDialog
+from darefx.gui.components.stock_panel import StockPanelWidget
 from darefx.gui.styles import ThemeColors, get_application_stylesheet, get_badge_style
 from darefx.gui.worker import TradingEngineWorker
 from darefx.trading.mt5_bridge import AccountInfo, Position
@@ -196,7 +197,11 @@ class DareFXMainWindow(QMainWindow):
         self.crypto_panel = CryptoPanelWidget()
         self.tabs.addTab(self.crypto_panel, "🪙 Crypto Terminal (CCXT)")
 
-        # --- Tab 3: Market Screener ---
+        # --- Tab 3: Stocks Terminal (Equities) ---
+        self.stock_panel = StockPanelWidget()
+        self.tabs.addTab(self.stock_panel, "🏛️ Stocks Terminal (Equities)")
+
+        # --- Tab 4: Market Screener ---
         self.screener_panel = ScreenerTableWidget()
         self.tabs.addTab(self.screener_panel, "🔍 Market Screener")
 

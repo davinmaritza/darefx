@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from darefx.data.crypto_screener import CryptoScreener, ScreenerCandidate
+from darefx.data.stock_screener import StockScreener
 from darefx.gui.styles import ThemeColors, get_badge_style
 
 
@@ -29,7 +30,8 @@ class ScreenerTableWidget(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.screener = CryptoScreener()
+        self.crypto_screener = CryptoScreener()
+        self.stock_screener = StockScreener()
         self.candidates: list[ScreenerCandidate] = []
         self._build_ui()
 
@@ -42,18 +44,23 @@ class ScreenerTableWidget(QWidget):
         toolbar = QHBoxLayout()
         toolbar.setSpacing(10)
 
-        title = QLabel("RADAR PASAR & SCREENER LIKUIDITAS TINGGI")
+        title = QLabel("RADAR PASAR & SCREENER MULTI-ASET")
         title.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {ThemeColors.TEXT_MUTED};")
         toolbar.addWidget(title)
 
         toolbar.addStretch()
+
+        self.market_combo = QComboBox()
+        self.market_combo.addItems(["🪙 Pasar Kripto (Top 50)", "🏛️ Saham Wall Street (S&P 500)"])
+        self.market_combo.currentIndexChanged.connect(self._on_market_changed)
+        toolbar.addWidget(self.market_combo)
 
         self.filter_combo = QComboBox()
         self.filter_combo.addItems(["Semua Sinyal", "Hanya BUY (+1)", "Hanya SELL (-1)"])
         self.filter_combo.currentIndexChanged.connect(self._apply_filter)
         toolbar.addWidget(self.filter_combo)
 
-        self.scan_btn = QPushButton("🔄 Scan Pasar Kripto (Top 50)")
+        self.scan_btn = QPushButton("🔄 Scan Pasar")
         self.scan_btn.setProperty("class", "primaryBtn")
         self.scan_btn.clicked.connect(self.run_scan)
         toolbar.addWidget(self.scan_btn)
@@ -97,16 +104,26 @@ class ScreenerTableWidget(QWidget):
         self.status_label.setStyleSheet(f"font-size: 11px; color: {ThemeColors.TEXT_MUTED};")
         layout.addWidget(self.status_label)
 
+    def _on_market_changed(self) -> None:
+        self.run_scan()
+
     def run_scan(self) -> None:
-        """Execute market scanning sequence."""
+        """Execute market scanning sequence based on selected sector."""
         self.scan_btn.setEnabled(False)
-        self.status_label.setText("Memindai koin likuiditas tinggi...")
+        is_crypto = (self.market_combo.currentIndex() == 0)
+        sector_name = "kripto" if is_crypto else "saham Wall Street"
+        self.status_label.setText(f"Memindai aset likuid {sector_name}...")
         try:
-            symbols = self.screener.get_liquid_universe(min_volume_usd=5_000_000, top_n=20)
-            self.candidates = self.screener.scan_universe(symbols, timeframe="4h")
+            if is_crypto:
+                symbols = self.crypto_screener.get_liquid_universe(min_volume_usd=5_000_000, top_n=20)
+                self.candidates = self.crypto_screener.scan_universe(symbols, timeframe="4h")
+            else:
+                symbols = self.stock_screener.get_liquid_universe(top_n=20)
+                self.candidates = self.stock_screener.scan_universe(symbols)
+
             self._render_table()
             now_str = datetime.now(timezone.utc).strftime("%H:%M:%S UTC")
-            self.status_label.setText(f"Scan selesai pada {now_str}. Total aset: {len(self.candidates)}.")
+            self.status_label.setText(f"Scan {sector_name} selesai pada {now_str}. Total aset: {len(self.candidates)}.")
         except Exception as err:
             self.status_label.setText(f"Scan gagal: {err}")
         finally:

@@ -7,6 +7,7 @@ from darefx.gui.components.metric_card import MetricCard
 from darefx.gui.components.positions_table import PositionsTableWidget
 from darefx.gui.components.screener_table import ScreenerTableWidget
 from darefx.gui.components.settings_dialog import SettingsDialog
+from darefx.gui.components.stock_panel import StockPanelWidget
 
 __all__ = [
     "AnalysisPanelWidget",
@@ -16,4 +17,5 @@ __all__ = [
     "PositionsTableWidget",
     "ScreenerTableWidget",
     "SettingsDialog",
+    "StockPanelWidget",
 ]
