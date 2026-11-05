@@ -47,6 +47,9 @@ dependencies = [
 
     # Cloud MT5 Bridge
     "metaapi-cloud-sdk>=29.0",
+
+    # Crypto Exchange Connectivity (CCXT)
+    "ccxt>=4.4.0",
 ]
 
 [project.optional-dependencies]

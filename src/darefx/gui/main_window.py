@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSplitter,
     QSystemTrayIcon,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -26,8 +27,10 @@ from PySide6.QtWidgets import (
 from darefx.analysis.market_analyzer import MarketAnalysisReport
 from darefx.gui.components.analysis_panel import AnalysisPanelWidget
 from darefx.gui.components.control_panel import ControlPanelWidget
+from darefx.gui.components.crypto_panel import CryptoPanelWidget
 from darefx.gui.components.metric_card import MetricCard
 from darefx.gui.components.positions_table import PositionsTableWidget
+from darefx.gui.components.screener_table import ScreenerTableWidget
 from darefx.gui.components.settings_dialog import SettingsDialog
 from darefx.gui.styles import ThemeColors, get_application_stylesheet, get_badge_style
 from darefx.gui.worker import TradingEngineWorker
@@ -137,11 +140,19 @@ class DareFXMainWindow(QMainWindow):
         metrics_layout.addWidget(self.metric_daily_pnl)
         root_layout.addLayout(metrics_layout)
 
-        # 3. Quick Control Toolbar
-        self.control_panel = ControlPanelWidget()
-        root_layout.addWidget(self.control_panel)
+        # 3. Main Multi-Asset Tabbed Cockpit
+        self.tabs = QTabWidget()
+        self.tabs.setObjectName("MainCockpitTabs")
 
-        # 4. Main Body Splitter: Positions Table (Top) & Split AI / Log (Bottom)
+        # --- Tab 1: Overview & Forex Terminal (MT5) ---
+        forex_tab = QWidget()
+        forex_layout = QVBoxLayout(forex_tab)
+        forex_layout.setContentsMargins(6, 10, 6, 6)
+        forex_layout.setSpacing(10)
+
+        self.control_panel = ControlPanelWidget()
+        forex_layout.addWidget(self.control_panel)
+
         body_splitter = QSplitter(Qt.Orientation.Vertical)
 
         # Top: Positions Table
@@ -178,7 +189,18 @@ class DareFXMainWindow(QMainWindow):
         body_splitter.addWidget(bottom_splitter)
         body_splitter.setSizes([380, 320])
 
-        root_layout.addWidget(body_splitter)
+        forex_layout.addWidget(body_splitter)
+        self.tabs.addTab(forex_tab, "📊 Overview & Forex (MT5)")
+
+        # --- Tab 2: Crypto Terminal (CCXT) ---
+        self.crypto_panel = CryptoPanelWidget()
+        self.tabs.addTab(self.crypto_panel, "🪙 Crypto Terminal (CCXT)")
+
+        # --- Tab 3: Market Screener ---
+        self.screener_panel = ScreenerTableWidget()
+        self.tabs.addTab(self.screener_panel, "🔍 Market Screener")
+
+        root_layout.addWidget(self.tabs)
 
     def _setup_system_tray(self) -> None:
         self.tray_icon = QSystemTrayIcon(self)

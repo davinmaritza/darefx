@@ -133,6 +133,35 @@ def get_application_stylesheet() -> str:
     QLineEdit:focus, QDoubleSpinBox:focus, QComboBox:focus {{
         border: 1px solid {ThemeColors.ACCENT_PRIMARY};
     }}
+
+    QTabWidget::pane {{
+        border: 1px solid {ThemeColors.BORDER_LIGHT};
+        background-color: {ThemeColors.BG_PRIMARY};
+        border-radius: 8px;
+    }}
+
+    QTabBar::tab {{
+        background-color: {ThemeColors.BG_SUBTLE};
+        color: {ThemeColors.TEXT_MUTED};
+        padding: 8px 18px;
+        margin-right: 4px;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        font-weight: 600;
+        font-size: 12px;
+    }}
+
+    QTabBar::tab:selected {{
+        background-color: {ThemeColors.BG_SURFACE};
+        color: {ThemeColors.ACCENT_PRIMARY};
+        border: 1px solid {ThemeColors.BORDER_STRONG};
+        border-bottom: 2px solid {ThemeColors.ACCENT_PRIMARY};
+    }}
+
+    QTabBar::tab:hover:!selected {{
+        background-color: {ThemeColors.BORDER_LIGHT};
+        color: {ThemeColors.TEXT_PRIMARY};
+    }}
     """
 
 
