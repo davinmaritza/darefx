@@ -61,12 +61,20 @@ def test_screener_table_widget_lifecycle(qapp) -> None:
     assert len(screener.candidates) > 0
 
 
-def test_main_window_has_all_four_multi_asset_tabs(qapp) -> None:
+def test_main_window_has_all_multi_asset_tabs(qapp) -> None:
     win = DareFXMainWindow(simulation=True)
     assert hasattr(win, "tabs")
-    assert win.tabs.count() == 4
+    assert win.tabs.count() == 5
     assert "Forex" in win.tabs.tabText(0)
     assert "Crypto" in win.tabs.tabText(1)
     assert "Stocks" in win.tabs.tabText(2)
     assert "Screener" in win.tabs.tabText(3)
+    assert "Chart" in win.tabs.tabText(4)
+
+    # Test double-click routing to chart
+    win._on_screener_symbol_selected("BTC/USDT", "crypto")
+    assert win.tabs.currentWidget() == win.chart_panel
+    assert win.chart_panel.symbol_combo.currentText() == "BTC/USDT"
+
     win.close()
+

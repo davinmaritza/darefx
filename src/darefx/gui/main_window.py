@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
-from PySide6.QtCore import QThread, Qt
+from PySide6.QtCore import Qt, QThread
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -24,8 +23,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from darefx.analysis.market_analyzer import MarketAnalysisReport
 from darefx.gui.components.analysis_panel import AnalysisPanelWidget
+from darefx.gui.components.candlestick_chart import CandlestickChartWidget
 from darefx.gui.components.control_panel import ControlPanelWidget
 from darefx.gui.components.crypto_panel import CryptoPanelWidget
 from darefx.gui.components.metric_card import MetricCard
@@ -52,11 +51,13 @@ class DareFXMainWindow(QMainWindow):
         self.tray_icon: QSystemTrayIcon | None = None
 
         # Set application and window icon
-        logo_icon_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo" / "darefx-app.png"
+        logo_dir = Path(__file__).resolve().parent.parent.parent / "assets" / "logo"
+        logo_icon_path = logo_dir / "darefx-app.png"
         if not logo_icon_path.exists():
             logo_icon_path = Path("assets/logo/darefx-app.png")
         if logo_icon_path.exists():
             self.setWindowIcon(QIcon(str(logo_icon_path)))
+
 
         # Worker & Background Thread
         self.thread = QThread()
@@ -85,13 +86,17 @@ class DareFXMainWindow(QMainWindow):
         header_layout = QHBoxLayout()
         header_layout.setSpacing(12)
 
-        logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo" / "darefx-app.png"
+        logo_dir = Path(__file__).resolve().parent.parent.parent / "assets" / "logo"
+        logo_path = logo_dir / "darefx-app.png"
         if not logo_path.exists():
             logo_path = Path("assets/logo/darefx-app.png")
         if logo_path.exists():
             logo_label = QLabel()
             pixmap = QPixmap(str(logo_path)).scaled(
-                40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+                40,
+                40,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
             )
             logo_label.setPixmap(pixmap)
             header_layout.addWidget(logo_label)
@@ -99,12 +104,14 @@ class DareFXMainWindow(QMainWindow):
         title_box = QVBoxLayout()
         title_box.setSpacing(2)
         app_title = QLabel("DareFX Quantitative Trading Station")
-        app_title.setStyleSheet(f"font-size: 16px; font-weight: 800; color: {ThemeColors.TEXT_PRIMARY};")
+        title_style = f"font-size: 16px; font-weight: 800; color: {ThemeColors.TEXT_PRIMARY};"
+        app_title.setStyleSheet(title_style)
         subtitle = QLabel("EUR/USD Triple-Barrier AI Execution Engine")
         subtitle.setStyleSheet(f"font-size: 11px; color: {ThemeColors.TEXT_MUTED};")
         title_box.addWidget(app_title)
         title_box.addWidget(subtitle)
         header_layout.addLayout(title_box)
+
 
         header_layout.addStretch()
 
@@ -133,7 +140,12 @@ class DareFXMainWindow(QMainWindow):
         self.metric_balance = MetricCard("Balance (Saldo)", "$0.00", "Akun Terverifikasi")
         self.metric_equity = MetricCard("Equity (Ekuitas)", "$0.00", "Floating: $0.00")
         self.metric_positions = MetricCard("Posisi Terbuka", "0 Order", "Batas Margin Aman")
-        self.metric_daily_pnl = MetricCard("PnL Harian", "+$0.00", "Status Sirkuit: AKTIF", is_positive=True)
+        self.metric_daily_pnl = MetricCard(
+            "PnL Harian",
+            "+$0.00",
+            "Status Sirkuit: AKTIF",
+            is_positive=True,
+        )
 
         metrics_layout.addWidget(self.metric_balance)
         metrics_layout.addWidget(self.metric_equity)
@@ -161,8 +173,8 @@ class DareFXMainWindow(QMainWindow):
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(0, 0, 0, 0)
         table_header = QLabel("POSISI AKTIF & PROTEKSI BREAK-EVEN (MT5 LIVE)")
-        table_header.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {ThemeColors.TEXT_MUTED};")
-        table_layout.addWidget(table_header)
+        th_style = f"font-size: 11px; font-weight: 700; color: {ThemeColors.TEXT_MUTED};"
+        table_header.setStyleSheet(th_style)
         self.positions_table = PositionsTableWidget()
         table_layout.addWidget(self.positions_table)
         body_splitter.addWidget(table_container)
@@ -177,7 +189,9 @@ class DareFXMainWindow(QMainWindow):
         log_layout = QVBoxLayout(log_container)
         log_layout.setContentsMargins(0, 0, 0, 0)
         log_header = QLabel("LOG EKSEKUSI & AUDIT BOT")
-        log_header.setStyleSheet(f"font-size: 11px; font-weight: 700; color: {ThemeColors.TEXT_MUTED};")
+        lh_style = f"font-size: 11px; font-weight: 700; color: {ThemeColors.TEXT_MUTED};"
+        log_header.setStyleSheet(lh_style)
+
         log_layout.addWidget(log_header)
 
         self.log_console = QTextEdit()
@@ -205,17 +219,23 @@ class DareFXMainWindow(QMainWindow):
         self.screener_panel = ScreenerTableWidget()
         self.tabs.addTab(self.screener_panel, "🔍 Market Screener")
 
+        # --- Tab 5: Interactive Candlestick Chart ---
+        self.chart_panel = CandlestickChartWidget()
+        self.tabs.addTab(self.chart_panel, "📈 Interactive Chart")
+
         root_layout.addWidget(self.tabs)
 
     def _setup_system_tray(self) -> None:
         self.tray_icon = QSystemTrayIcon(self)
-        logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo" / "darefx-app.png"
+        logo_dir = Path(__file__).resolve().parent.parent.parent / "assets" / "logo"
+        logo_path = logo_dir / "darefx-app.png"
         if not logo_path.exists():
             logo_path = Path("assets/logo/darefx-app.png")
         if logo_path.exists():
             self.tray_icon.setIcon(QIcon(str(logo_path)))
         else:
-            self.tray_icon.setIcon(self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon))
+            default_icon = self.style().standardIcon(self.style().StandardPixmap.SP_ComputerIcon)
+            self.tray_icon.setIcon(default_icon)
         self.tray_icon.setToolTip("DareFX Trading Station (Running)")
 
         menu = QMenu()
@@ -243,8 +263,26 @@ class DareFXMainWindow(QMainWindow):
         self.control_panel.manual_order_requested.connect(
             lambda o_type, lot: self.worker.execute_manual_order("EURUSD", o_type, lot)
         )
-        self.control_panel.run_analysis_requested.connect(lambda: self.worker.run_market_analysis("EURUSD"))
+        self.control_panel.run_analysis_requested.connect(
+            lambda: self.worker.run_market_analysis("EURUSD")
+        )
         self.positions_table.close_requested.connect(self.worker.close_position)
+
+        # Screener to Chart navigation
+        self.screener_panel.symbol_selected.connect(self._on_screener_symbol_selected)
+
+    def _on_screener_symbol_selected(self, symbol: str, market_type: str) -> None:
+        """Open selected asset from screener in the interactive candlestick chart."""
+        self.tabs.setCurrentWidget(self.chart_panel)
+        m_idx = 1 if market_type == "crypto" else 2 if market_type == "stocks" else 0
+        self.chart_panel.market_combo.setCurrentIndex(m_idx)
+        idx = self.chart_panel.symbol_combo.findText(symbol)
+        if idx >= 0:
+            self.chart_panel.symbol_combo.setCurrentIndex(idx)
+        else:
+            self.chart_panel.symbol_combo.addItem(symbol)
+            self.chart_panel.symbol_combo.setCurrentText(symbol)
+        self.chart_panel.refresh_data()
 
     def _on_account_updated(self, acc: AccountInfo) -> None:
         self.metric_balance.update_values(f"${acc.balance:,.2f}", f"Leverage 1:{acc.leverage}")
@@ -257,15 +295,18 @@ class DareFXMainWindow(QMainWindow):
         )
         mode_str = "SIMULASI" if self.worker.is_simulation else f"LIVE ({acc.login})"
         self.status_badge.setText(f"MT5: {mode_str}")
-        self.status_badge.setStyleSheet(get_badge_style("active" if not self.worker.is_simulation else "warning"))
+        badge_mode = "active" if not self.worker.is_simulation else "warning"
+        self.status_badge.setStyleSheet(get_badge_style(badge_mode))
 
     def _on_positions_updated(self, positions: list[Position]) -> None:
         self.positions_table.update_positions(positions)
         total_profit = sum(p.profit for p in positions)
-        total_pips = sum(
-            ((p.open_price - p.current_price) if str(p.order_type).upper().endswith("SELL") else (p.current_price - p.open_price)) / 0.0001
-            for p in positions
-        )
+        total_pips = 0.0
+        for p in positions:
+            is_sell = str(p.order_type).upper().endswith("SELL")
+            diff = (p.open_price - p.current_price) if is_sell else (p.current_price - p.open_price)
+            total_pips += diff / 0.0001
+
         profit_sign = "+" if total_profit >= 0 else ""
         self.metric_positions.update_values(
             f"{len(positions)} Order",
@@ -274,7 +315,7 @@ class DareFXMainWindow(QMainWindow):
         )
 
     def _append_log(self, message: str, level: str) -> None:
-        now_str = datetime.now(timezone.utc).strftime("%H:%M:%S")
+        now_str = datetime.now(UTC).strftime("%H:%M:%S")
         color_map = {
             "INFO": ThemeColors.TEXT_MUTED,
             "TRADE": ThemeColors.ACCENT_SUCCESS,
@@ -282,17 +323,21 @@ class DareFXMainWindow(QMainWindow):
             "ERROR": ThemeColors.ACCENT_DANGER,
         }
         color = color_map.get(level, ThemeColors.TEXT_PRIMARY)
-        formatted = f"<span style='color:{ThemeColors.TEXT_MUTED};'>[{now_str}]</span> <span style='color:{color}; font-weight:600;'>[{level}]</span> {message}"
+        formatted = (
+            f"<span style='color:{ThemeColors.TEXT_MUTED};'>[{now_str}]</span> "
+            f"<span style='color:{color}; font-weight:600;'>[{level}]</span> {message}"
+        )
         self.log_console.append(formatted)
 
     def _open_settings(self) -> None:
         dlg = SettingsDialog(env_path=self.env_path, parent=self)
         dlg.exec()
 
-    def closeEvent(self, event: QCloseEvent) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         """Close window and cleanly terminate application."""
         self._force_quit()
         event.accept()
+
 
     def _force_quit(self) -> None:
         """Terminate worker threads, hide tray, and exit application cleanly."""

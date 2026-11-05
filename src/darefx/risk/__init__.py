@@ -7,6 +7,12 @@ from darefx.risk.position_sizing import (
     calculate_half_kelly_fraction,
 )
 from darefx.risk.news_filter import EconomicNewsFilter, EconomicEvent
+from darefx.risk.portfolio_governor import (
+    AssetClass,
+    PortfolioGovernor,
+    PortfolioGovernorConfig,
+    SignalCandidate,
+)
 
 __all__ = [
     "CircuitBreaker",
@@ -17,4 +23,9 @@ __all__ = [
     "calculate_half_kelly_fraction",
     "EconomicNewsFilter",
     "EconomicEvent",
+    "AssetClass",
+    "PortfolioGovernor",
+    "PortfolioGovernorConfig",
+    "SignalCandidate",
 ]
+

@@ -27,6 +27,7 @@ class ScreenerTableWidget(QWidget):
     """Interactive real-time screener table for multi-asset scanning."""
 
     trade_requested = Signal(str, str)  # symbol, action ('BUY'/'SELL')
+    symbol_selected = Signal(str, str)  # symbol, market ('crypto' or 'stocks')
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -34,6 +35,7 @@ class ScreenerTableWidget(QWidget):
         self.stock_screener = StockScreener()
         self.candidates: list[ScreenerCandidate] = []
         self._build_ui()
+
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -97,12 +99,20 @@ class ScreenerTableWidget(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
+        self.table.cellDoubleClicked.connect(self._on_cell_double_clicked)
 
         layout.addWidget(self.table)
 
-        self.status_label = QLabel("Siap memindai pasar.")
+        self.status_label = QLabel("Siap memindai pasar (Klik dua kali baris untuk membuka grafik).")
         self.status_label.setStyleSheet(f"font-size: 11px; color: {ThemeColors.TEXT_MUTED};")
         layout.addWidget(self.status_label)
+
+    def _on_cell_double_clicked(self, row: int, col: int) -> None:
+        sym_item = self.table.item(row, 0)
+        if sym_item:
+            sym = sym_item.text().strip()
+            market = "crypto" if self.market_combo.currentIndex() == 0 else "stocks"
+            self.symbol_selected.emit(sym, market)
 
     def _on_market_changed(self) -> None:
         self.run_scan()

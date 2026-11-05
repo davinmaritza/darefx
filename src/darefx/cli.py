@@ -520,7 +520,125 @@ def run_cycle(
         console.print(f"[red]Execution status: {result}[/red]")
 
 
+@app.command(name="run-multi")
+def run_multi(
+    equity: float = typer.Option(10_000.0, help="Total account equity in USD"),
+    execute: bool = typer.Option(
+        False, "--execute", help="Execute orders via live/paper broker connections"
+    ),
+    once: bool = typer.Option(
+        True, "--once/--daemon", help="Run single cycle immediately or run continuous daemon"
+    ),
+    forex_symbols: str = typer.Option(
+        "EURUSD,GBPUSD,USDJPY", help="Forex symbols (comma-separated)"
+    ),
+    crypto_symbols: str = typer.Option(
+        "BTC/USDT,ETH/USDT,SOL/USDT", help="Crypto pairs (comma-separated)"
+    ),
+    stock_symbols: str = typer.Option(
+        "NVDA,AAPL,MSFT,AMZN,TSLA", help="Stock symbols (comma-separated)"
+    ),
+    max_positions: int = typer.Option(
+        5, help="Maximum concurrent positions across all asset classes"
+    ),
+) -> None:
+    """Run unified cross-asset scanning and risk-governed execution across Forex, Crypto, Stocks."""
+    import time
+
+    from darefx.risk.portfolio_governor import PortfolioGovernor, PortfolioGovernorConfig
+    from darefx.trading.multi_scheduler import MultiScheduler, MultiSchedulerConfig
+
+    fx_list = [s.strip().upper() for s in forex_symbols.split(",") if s.strip()]
+    crypto_list = [s.strip().upper() for s in crypto_symbols.split(",") if s.strip()]
+    stock_list = [s.strip().upper() for s in stock_symbols.split(",") if s.strip()]
+
+    mode_label = (
+        "[bold red]LIVE / PAPER EXECUTION[/bold red]"
+        if execute
+        else "[bold cyan]SIMULATION / ALERT ONLY[/bold cyan]"
+    )
+    banner_msg = (
+        f"[bold cyan]Initiating DareFX Unified Multi-Asset Engine "
+        f"({mode_label})...[/bold cyan]"
+    )
+    console.print(banner_msg)
+
+
+
+    config = MultiSchedulerConfig(
+        forex_symbols=fx_list,
+        crypto_symbols=crypto_list,
+        stock_symbols=stock_list,
+        account_equity=equity,
+        execute_orders=execute,
+    )
+    governor = PortfolioGovernor(
+        config=PortfolioGovernorConfig(
+            max_total_positions=max_positions,
+            max_positions_per_asset={"forex": 2, "crypto": 2, "stocks": 2},
+        )
+    )
+    scheduler = MultiScheduler(config=config, governor=governor)
+
+    if once:
+        scan_msg = (
+            f"Scanning {len(fx_list)} Forex pairs, {len(crypto_list)} Crypto pairs, "
+            f"and {len(stock_list)} Stocks..."
+        )
+        console.print(scan_msg)
+        results = scheduler.run_all_cycles()
+
+        table = Table(title="DareFX Multi-Asset Trade Dispatch Summary")
+        table.add_column("Asset Class", style="cyan")
+        table.add_column("Symbol", style="bold white")
+        table.add_column("Action", style="white")
+        table.add_column("Entry", style="green")
+        table.add_column("Stop Loss", style="red")
+        table.add_column("Take Profit", style="green")
+        table.add_column("Confidence", style="yellow")
+        table.add_column("Status / Ticket", style="bold magenta")
+
+        total_orders = 0
+        for asset_key, items in results.items():
+            for it in items:
+                total_orders += 1
+                action = it.get("action", "BUY")
+                act_color = "green" if action == "BUY" else "red"
+                status_txt = f"{it.get('status')} (#{it.get('ticket', 0)})"
+                table.add_row(
+                    asset_key.upper(),
+                    it.get("symbol", "-"),
+                    f"[{act_color}]{action}[/{act_color}]",
+                    f"{it.get('entry_price', 0.0):.4f}",
+                    f"{it.get('stop_loss', 0.0):.4f}",
+                    f"{it.get('take_profit', 0.0):.4f}",
+                    f"{it.get('confidence', 0.0) * 100:.1f}%",
+                    status_txt,
+                )
+
+        if total_orders > 0:
+            console.print(table)
+        else:
+            no_orders_msg = (
+                "[yellow]All scanned markets evaluated. "
+                "No new setups met threshold or capacity bounds.[/yellow]"
+            )
+            console.print(no_orders_msg)
+    else:
+        console.print("[bold green]Starting daemon scheduler. Press Ctrl+C to terminate.[/bold green]")
+        scheduler.start()
+        try:
+            while scheduler.is_running:
+                time.sleep(1.0)
+        except KeyboardInterrupt:
+            console.print("[yellow]Stopping MultiScheduler daemon...[/yellow]")
+            scheduler.stop()
+            console.print("[green]MultiScheduler daemon safely stopped.[/green]")
+
+
+
 @app.command(name="risk-status")
+
 def risk_status() -> None:
     """Inspect the current state and capital drawdowns of the DareFX Circuit Breaker."""
     from darefx.risk.circuit_breaker import CircuitBreaker, CircuitState

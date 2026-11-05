@@ -46,6 +46,9 @@ class CryptoCredentials:
     default_type: str = "future"  # 'spot' or 'future'
 
 
+CCXTCredentials = CryptoCredentials
+
+
 class CCXTAdapter:
     """Standardized CCXT adapter matching DareFX bridge interface."""
 
