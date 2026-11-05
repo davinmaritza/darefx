@@ -1,8 +1,6 @@
 # DareFX Desktop GUI Application Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
-**Goal:** Build a native Windows desktop GUI application for DareFX using PySide6 with a clean professional minimalist enterprise banking aesthetic, real-time MT5 position management, AI market diagnosis, background engine worker, system tray integration, and settings configuration dialog.
+**Goal:** Build a native desktop GUI application for DareFX using PySide6 with real-time MT5 position management, market diagnosis, background engine worker, system tray integration, and settings configuration dialog.
 
 **Architecture:** Unified desktop application where the UI runs on Qt's main thread and the trading engine executes in a dedicated `QThread` (`TradingEngineWorker`). Communication between the UI and engine uses Qt Signals and Slots, preventing UI lockups. The application integrates with the Windows System Tray for background operation and persists trading parameters directly into `.env`.
 

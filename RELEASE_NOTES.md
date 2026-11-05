@@ -1,67 +1,53 @@
-# DareFX v1.0.0 — Enterprise Quantitative AI Trading Station & Desktop Terminal
+# DareFX v1.0.0
 
-DareFX v1.0.0 marks the official enterprise release of the autonomous machine learning trading engine and native desktop station engineered for EUR/USD swing trading.
-
----
-
-### 🌟 Key Highlights & Features
-
-#### 🖥️ 1. Native Desktop GUI Terminal (PySide6 / Qt)
-- **Enterprise Banking Minimalist Theme**: High-contrast, clean typography (`#F8FAFC`), rounded cards, and visual hierarchy designed for institutional reliability.
-- **Live Financial Summary**: Real-time cards displaying Balance, Equity, Margin Utilization, and Floating PnL.
-- **Active Positions Table**: Order tickets with real-time pip calculations, Take-Profit / Stop-Loss levels, dynamic **Break-Even (BE+) protection indicator**, and instant individual position closure.
-- **Master Control Panel**:
-  - `🟢 Auto-Trade` toggle switch.
-  - `🚨 Emergency Panic Close` with modal confirmation dialog to liquidate all positions.
-  - `⚡ Manual Order Placement` with volume/lot spinbox.
-  - `🤖 AI Market Analysis` trigger on demand.
-- **System Tray & Desktop Shortcut**: Seamless background minimization without interrupting open positions or bot cycles, featuring the official DareFX high-resolution icon on Windows Desktop (`.lnk`).
-
-#### 🧠 2. Quantitative AI & Machine Learning Engine
-- **Supervised Models**: LightGBM and XGBoost probabilistic inference trained on 25 years of daily EUR/USD data.
-- **Triple Barrier Labeling (Marcos López de Prado)**: Dynamic profit target and stop loss barriers scaled by rolling ATR with vertical time-expiry barriers (5 daily bars).
-- **Combinatorial Purged Cross-Validation (CPCV)**: 79 walk-forward folds with 10-day purge gap and 5-day embargo to eliminate forward-looking overlap leakage.
-- **Stationary Feature Pipeline**: 35 backward-looking stationary indicators (RSI-14, MACD, Bollinger Bands, ATR, NATR, ADX-14, EMA 9/21/50/200 ratios).
-- **Statistical Invariants (2007–2026 Walk-Forward Audit)**:
-  - Annualized Sharpe Ratio: **2.95** (Benchmark > 0.50)
-  - Probabilistic Sharpe Ratio (PSR): **98.6%** (Benchmark > 95.0%)
-  - Deflated Sharpe Ratio (DSR): **91.9%** (Benchmark > 50.0%)
-  - Total Net Return: **+30.31%** under real friction (1.5 pips spread, 1.0 pip slippage, $7/lot commission)
-  - Maximum Drawdown: **5.96%** (Hard cap < 15.00%)
-
-#### 🛡️ 3. Execution Protection & Risk Governance
-- **Economic News Guard**: Auto-fetches ForexFactory high-impact USD/EUR economic calendar events; freezes trading 30 minutes before and after high-impact events.
-- **Auto Break-Even Protection (BE+)**: Automatically updates SL to lock in profit (+1.5 pips) as soon as the position exceeds +15 pips.
-- **Position Sizing**: Fixed fractional sizing (1.0% risk) constrained by half-Kelly criterion and 5.0% margin cap.
-- **Circuit Breaker State Machine**: `ACTIVE`, `PAUSED_DAILY` (-5.0% daily loss halt), and `SHUTDOWN` (-15.0% peak drawdown).
-
-#### 📱 4. Interactive Telegram Server & Notifier
-- Full bidirectional Telegram bot with interactive inline keypad and commands (`/status`, `/analisis`, `/news`, `/breakeven`, `/closeall`, `/buy`, `/sell`).
-- Rich Markdown broadcast alerts for order entries, TP/SL hits, and circuit breaker events.
-
-#### 🎨 5. Official Brand Identity Suite
-- High-end **Quantum Delta** logomark representing the mathematical monogram "D" intersecting with an upward-trending algorithmic growth arrow.
-- Multi-resolution Windows ICO (`darefx-app.ico`), vector SVGs, and ultra-high-definition PNGs.
+DareFX v1.0.0 is the initial stable release of the automated EUR/USD trading terminal and ML execution engine.
 
 ---
 
-### 🧪 Verification & Test Suite
-- **75/75 Unit & Integration Tests Passing (100%)** across Risk, Models, Data, Indicators, MT5 Bridge, GUI, and Telegram Server.
-- Full CI/CD pipeline verified on GitHub Actions.
+### Highlights
+
+#### Desktop Terminal (PySide6 / Qt)
+- Account summary cards showing balance, equity, margin utilization, and floating profit/loss
+- Active positions table with dynamic break-even indicators and individual close buttons
+- Controls for auto-trade toggle, emergency close all, manual orders, and on-demand model inference
+- System tray minimization to keep trading active in the background
+- Multi-resolution app icon and Windows desktop shortcuts
+
+#### Signal Engine & Validation
+- Walk-forward LightGBM models trained on 25 years of daily EUR/USD data
+- Triple-barrier labeling with ATR-scaled take profit and stop loss targets
+- 79 walk-forward folds with a 10-day purge gap and 5-day embargo to eliminate leakage
+- 35 stationary indicators normalized with rolling backward-looking z-scores
+- 2007–2026 walk-forward audit results:
+  - Total Net Return: +37.58% ($10,000 → $13,757)
+  - Annualized Sharpe Ratio: 4.24
+  - Deflated Sharpe Ratio (DSR): 98.2% across 35 optimization trials
+  - Max Drawdown: 4.62%
+  - Win Rate: 59.02% (72 wins / 50 losses)
+
+#### Risk Management
+- Fixed fractional position sizing (1.0% risk per trade) capped by half-Kelly constraints
+- Automated break-even protection (+1.5 pips profit lock once trades advance +15 pips)
+- Economic news filter via ForexFactory to freeze trading around high-impact events
+- Circuit breaker state machine to halt trading if daily loss hits -5.0% or total drawdown exceeds -15.0%
+
+#### Telegram Server
+- Remote status monitoring and trade commands (`/status`, `/analisis`, `/news`, `/breakeven`, `/closeall`)
+- Real-time order execution and safety halt notifications
 
 ---
 
-### 💾 Pre-compiled Executables & Installers
+### Pre-compiled Binaries & Installers
 
-Direct standalone binaries are available below and attached directly to this release:
+Standalone desktop binaries and installers are attached directly to this release:
 
-| Platform | Format | Filename | Size | Description |
+| Platform | Format | Filename | Size | Details |
 | :--- | :--- | :--- | :--- | :--- |
-| **Windows** (x86_64) | Standalone Executable | [`DareFX-windows-x86_64.exe`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/DareFX-windows-x86_64.exe) | ~186 MB | Portable Windows executable with full MetaTrader 5 API integration |
-| **Linux (Debian/Ubuntu/Mint)** | Debian Package | [`darefx_1.0.0_amd64.deb`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/darefx_1.0.0_amd64.deb) | ~526 MB | Standard Debian package with desktop launcher & system icon |
-| **Linux (Generic x86_64)** | Tarball Archive | [`DareFX-linux-x86_64.tar.gz`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/DareFX-linux-x86_64.tar.gz) | ~534 MB | Self-contained executable archive for all modern 64-bit Linux distros |
+| Windows (x86_64) | Standalone Executable | [`DareFX-windows-x86_64.exe`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/DareFX-windows-x86_64.exe) | 186 MB | Portable Windows executable with MetaTrader 5 API support |
+| Linux (Debian / Ubuntu / Mint) | Debian Package | [`darefx_1.0.0_amd64.deb`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/darefx_1.0.0_amd64.deb) | 526 MB | Installs system application entry and desktop launcher |
+| Linux (Generic x86_64) | Tarball Archive | [`DareFX-linux-x86_64.tar.gz`](https://github.com/davinmaritza/darefx/releases/download/v1.0.0/DareFX-linux-x86_64.tar.gz) | 534 MB | Self-contained portable executable bundle |
 
-#### Quick Run / Install:
+#### Running the Binaries
 ```bash
 # Windows
 # Download DareFX-windows-x86_64.exe and double-click to run
@@ -70,14 +56,14 @@ Direct standalone binaries are available below and attached directly to this rel
 sudo dpkg -i darefx_1.0.0_amd64.deb
 darefx-gui
 
-# Linux (Generic Portable Archive)
+# Linux (Portable Archive)
 tar -xzf DareFX-linux-x86_64.tar.gz
 ./DareFX
 ```
 
 ---
 
-### 📦 Source Code Quick Start
+### Running from Source
 
 ```bash
 # Clone the repository
@@ -91,7 +77,4 @@ uv pip install -e ".[dev]"
 
 # Run desktop GUI
 python app.py
-
-# Or on Windows
-run_gui.bat
 ```

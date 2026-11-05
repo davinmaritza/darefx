@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "darefx"
 version = "1.0.0"
-description = "Enterprise Quantitative AI Trading Station & Native Desktop Terminal"
+description = "Automated EUR/USD trading terminal and ML execution engine"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12, <3.13"
