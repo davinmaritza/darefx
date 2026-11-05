@@ -97,6 +97,37 @@ class CandlestickCanvas(QWidget):
         self.visible_start = max(0, len(bars) - self.visible_count)
         self.update()
 
+    def update_realtime_bar(self, bar: Any) -> None:
+        """Update the latest candle in real-time or append if an interval closed."""
+        if not self.bars:
+            return
+
+        latest = self.bars[-1]
+        b_ts = getattr(bar, "timestamp", datetime.now(UTC))
+        is_closed = getattr(bar, "is_closed", False)
+
+        if latest.timestamp.date() == b_ts.date() and not is_closed:
+            latest.high = max(latest.high, float(bar.high_price))
+            latest.low = min(latest.low, float(bar.low_price))
+            latest.close = float(bar.close_price)
+            latest.volume = float(bar.volume)
+        elif is_closed:
+            new_bar = CandleBar(
+                timestamp=b_ts,
+                open=float(bar.open_price),
+                high=float(bar.high_price),
+                low=float(bar.low_price),
+                close=float(bar.close_price),
+                volume=float(bar.volume),
+                ema20=latest.ema20,
+                ema50=latest.ema50,
+            )
+            self.bars.append(new_bar)
+            if self.visible_start + self.visible_count >= len(self.bars) - 1:
+                self.visible_start += 1
+
+        self.update()
+
     def reset_view(self) -> None:
         """Reset zoom to show recent bars."""
         if self.bars:
@@ -332,10 +363,39 @@ class CandlestickCanvas(QWidget):
 class CandlestickChartWidget(QWidget):
     """Complete Candlestick Chart component with symbol selector, HUD, and toggles."""
 
+    realtime_bar_received = Signal(object)  # Emits RealtimeBar from background thread
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.streamer: Any = None
+        self.realtime_bar_received.connect(self._handle_realtime_bar)
         self._build_ui()
         self._load_sample_data()
+        self._init_websocket_streamer()
+
+    def _init_websocket_streamer(self) -> None:
+        """Initialize background WebSocket ticker stream."""
+        try:
+            from darefx.data.ws_streamer import WebSocketStreamer
+
+            self.streamer = WebSocketStreamer(
+                on_bar_callback=lambda b: self.realtime_bar_received.emit(b)
+            )
+            cur_sym = self.symbol_combo.currentText() or "BTC/USDT"
+            self.streamer.start(cur_sym, "1m")
+        except Exception as err:
+            logger.debug("Could not start WebSocketStreamer: %s", err)
+
+    def _handle_realtime_bar(self, bar: Any) -> None:
+        """Handle incoming tick/bar safely on Qt GUI thread."""
+        self.canvas.update_realtime_bar(bar)
+        self._on_bar_hovered(None)
+
+    def closeEvent(self, event: Any) -> None:  # noqa: N802
+        """Stop background WebSocket streamer on widget disposal."""
+        if self.streamer:
+            self.streamer.stop()
+        super().closeEvent(event)
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)

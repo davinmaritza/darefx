@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
+import typer
 from rich.console import Console
 from rich.table import Table
-import typer
 
 from darefx import __version__
 from darefx.data.downloader import DukascopyDownloader, YahooFinanceDownloader
@@ -74,8 +74,8 @@ def fetch(
 
     elif source.lower() == "dukascopy":
         console.print("[yellow]Note: Dukascopy servers may be blocked by some Indonesian ISPs without a VPN.[/yellow]")
-        start_dt = datetime(2024, 1, 8, tzinfo=timezone.utc)
-        end_dt = datetime(2024, 1, 9, tzinfo=timezone.utc)
+        start_dt = datetime(2024, 1, 8, tzinfo=UTC)
+        end_dt = datetime(2024, 1, 9, tzinfo=UTC)
         downloader = DukascopyDownloader(symbol=symbol)
         df_ticks = downloader.fetch_range(start_dt, end_dt)
 
@@ -140,7 +140,7 @@ def features(
         console.print(f"[red]Error building features: {err}[/red]")
         return
 
-    console.print(f"[bold green]Feature matrix generated successfully![/bold green]")
+    console.print("[bold green]Feature matrix generated successfully![/bold green]")
     console.print(f"Total Samples: [cyan]{len(df_dataset):,}[/cyan]")
     console.print(f"Total Engineered Features: [cyan]{len(feature_names)}[/cyan]")
 
@@ -172,6 +172,7 @@ def train(
 ) -> None:
     """Execute Walk-Forward evaluation and train production LightGBM model."""
     import pandas as pd
+
     from darefx.features.pipeline import EXCLUDE_FROM_FEATURES
     from darefx.models.trainer import LightGBMConfig, LightGBMTrainer
     from darefx.models.validator import WalkForwardConfig
@@ -268,6 +269,7 @@ def backtest(
 ) -> None:
     """Run realistic out-of-sample backtest with transaction costs and fixed fractional risk."""
     import pandas as pd
+
     from darefx.backtest.engine import BacktestConfig, BacktestEngine
 
     oos_path = Path(data_dir) / f"{symbol.lower()}_oos_predictions.parquet"
@@ -336,6 +338,7 @@ def tune(
 ) -> None:
     """Run Optuna Bayesian hyperparameter search to discover profitable execution parameters."""
     import pandas as pd
+
     from darefx.backtest.engine import BacktestConfig, BacktestEngine
     from darefx.models.tuner import HyperparameterTuner
 
@@ -424,6 +427,7 @@ def tune_model(
 ) -> None:
     """Run Optuna Bayesian tuning on LightGBM tree structure and regularization."""
     import pandas as pd
+
     from darefx.features.pipeline import EXCLUDE_FROM_FEATURES
     from darefx.models.trainer import LightGBMConfig, LightGBMTrainer
     from darefx.models.tuner import HyperparameterTuner
@@ -636,6 +640,115 @@ def run_multi(
             console.print("[green]MultiScheduler daemon safely stopped.[/green]")
 
 
+@app.command(name="backtest-multi")
+def backtest_multi(
+    start: str = typer.Option("2023-01-01", help="Backtest start date (YYYY-MM-DD)"),
+    end: str = typer.Option("2026-11-01", help="Backtest end date (YYYY-MM-DD)"),
+    equity: float = typer.Option(10_000.0, help="Initial account equity in USD"),
+    risk_pct: float = typer.Option(1.0, help="Risk percent per trade"),
+    export_csv: str = typer.Option(None, help="Optional path to export daily equity curve CSV"),
+) -> None:
+    """Run cross-portfolio multi-asset backtest across Forex, Crypto, and Stocks."""
+    from darefx.analysis.multi_backtester import MultiAssetBacktestConfig, MultiAssetBacktester
+
+    console.print(
+        f"[bold cyan]Running DareFX Multi-Asset Cross-Portfolio Backtest "
+        f"({start} to {end})...[/bold cyan]"
+    )
+
+    config = MultiAssetBacktestConfig(
+        start_date=start,
+        end_date=end,
+        initial_equity=equity,
+        risk_per_trade_pct=risk_pct,
+    )
+    backtester = MultiAssetBacktester(config=config)
+    res = backtester.run()
+
+    # 1. Summary Metrics Table
+    summary_table = Table(title="DareFX Multi-Asset Portfolio Performance")
+    summary_table.add_column("Metric", style="white")
+    summary_table.add_column("Value", style="bold green")
+    summary_table.add_column("Assessment", style="cyan")
+
+    ret_color = "green" if res.total_return_pct >= 0 else "red"
+    summary_table.add_row(
+        "Capital Trajectory",
+        f"${res.initial_equity:,.2f} -> ${res.final_equity:,.2f}",
+        f"[{ret_color}]{res.total_return_pct:+.2f}% total[/{ret_color}]",
+    )
+    summary_table.add_row(
+        "Annualized Return",
+        f"{res.annualized_return_pct:+.2f}%",
+        "Compound annual growth",
+    )
+    summary_table.add_row(
+        "Maximum Drawdown",
+        f"{res.max_drawdown_pct:.2f}% (${res.max_drawdown_usd:,.2f})",
+        "Peak-to-valley loss",
+    )
+    summary_table.add_row(
+        "Portfolio Sharpe Ratio",
+        f"{res.portfolio_sharpe:.2f}",
+        "High alpha" if res.portfolio_sharpe > 1.5 else "Moderate",
+    )
+    summary_table.add_row(
+        "Portfolio Sortino Ratio",
+        f"{res.portfolio_sortino:.2f}",
+        "Downside-adjusted edge",
+    )
+    summary_table.add_row(
+        "Win Rate & Trades",
+        f"{res.overall_win_rate:.1f}% ({res.winning_trades}W / {res.losing_trades}L)",
+        f"{res.total_trades} total closed setups",
+    )
+    summary_table.add_row(
+        "Overall Profit Factor",
+        f"{res.overall_profit_factor:.2f}",
+        "Gross profit / gross loss",
+    )
+    console.print(summary_table)
+
+    # 2. Asset Breakdown Table
+    asset_table = Table(title="Performance by Asset Class")
+    asset_table.add_column("Asset Class", style="bold white")
+    asset_table.add_column("Trades", style="cyan")
+    asset_table.add_column("Win Rate", style="yellow")
+    asset_table.add_column("Net Profit ($)", style="green")
+    asset_table.add_column("Profit Factor", style="magenta")
+
+    for k, ap in res.asset_breakdown.items():
+        np_color = "green" if ap.net_profit >= 0 else "red"
+        asset_table.add_row(
+            ap.asset_class,
+            str(ap.total_trades),
+            f"{ap.win_rate:.1f}%",
+            f"[{np_color}]${ap.net_profit:+,.2f}[/{np_color}]",
+            f"{ap.profit_factor:.2f}",
+        )
+    console.print(asset_table)
+
+    # 3. Cross-Asset Correlation Table
+    corr_table = Table(title="Cross-Asset Daily Return Correlation (Diversification Matrix)")
+    corr_table.add_column("Asset", style="bold white")
+    corr_table.add_column("Forex", style="cyan")
+    corr_table.add_column("Crypto", style="yellow")
+    corr_table.add_column("Stocks", style="magenta")
+
+    for ak in ["forex", "crypto", "stocks"]:
+        row = res.correlation_matrix.get(ak, {})
+        corr_table.add_row(
+            ak.upper(),
+            f"{row.get('forex', 0.0):+.3f}",
+            f"{row.get('crypto', 0.0):+.3f}",
+            f"{row.get('stocks', 0.0):+.3f}",
+        )
+    console.print(corr_table)
+
+    if export_csv:
+        res.equity_curve.to_csv(export_csv, index=False)
+        console.print(f"[green]Saved daily equity curve to {export_csv}[/green]")
+
 
 @app.command(name="risk-status")
 
@@ -683,6 +796,7 @@ def evaluate(
 ) -> None:
     """Run Deflated Sharpe Ratio (DSR) analysis and generate Phase 5 Go/No-Go Decision Report."""
     import pandas as pd
+
     from darefx.analysis.evaluator import DecisionRecommendation, SystemEvaluator
 
     t_path = Path(trades_file)
@@ -737,6 +851,7 @@ def analyze(
 ) -> None:
     """Run comprehensive AI market analysis and generate Buy/Sell recommendations."""
     import json
+
     from darefx.analysis.market_analyzer import MarketAnalyzer
 
     console.print(f"[bold cyan]Initiating DareFX AI Market Analysis for {symbol}...[/bold cyan]")
@@ -799,6 +914,226 @@ def telegram_bot() -> None:
         server.start_polling()
     except KeyboardInterrupt:
         console.print("[cyan]Telegram bot server stopped.[/cyan]")
+
+
+@app.command(name="web")
+def web_cockpit(
+    host: str = typer.Option("0.0.0.0", help="HTTP binding host"),
+    port: int = typer.Option(8888, help="HTTP listening port"),
+) -> None:
+    """Launch DareFX Mobile Web Cockpit for browser and Tailscale remote access."""
+    import asyncio
+
+    from darefx.trading.multi_scheduler import MultiScheduler
+    from darefx.web.server import WebCockpitServer, get_tailscale_ip
+
+    ts_ip = get_tailscale_ip()
+    console.print(f"[bold cyan]Starting DareFX Mobile Web Cockpit on {host}:{port}...[/bold cyan]")
+    console.print(f"[bold green]Local access:      http://127.0.0.1:{port}[/bold green]")
+    console.print(f"[bold blue]Tailscale access:  http://{ts_ip}:{port}[/bold blue]")
+    console.print("[yellow]Press Ctrl+C to terminate.[/yellow]")
+
+    scheduler = MultiScheduler()
+    server = WebCockpitServer(host=host, port=port, scheduler=scheduler)
+
+    async def _main() -> None:
+        await server.start()
+        try:
+            while True:
+                await asyncio.sleep(1.0)
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            pass
+        finally:
+            await server.stop()
+
+    try:
+        asyncio.run(_main())
+    except KeyboardInterrupt:
+        console.print("[cyan]Web cockpit safely stopped.[/cyan]")
+
+
+# ---------------------------------------------------------------------------
+# Daemon Management CLI
+# ---------------------------------------------------------------------------
+daemon_app = typer.Typer(help="24/7 Production Daemon orchestration")
+app.add_typer(daemon_app, name="daemon")
+
+
+@daemon_app.command(name="start")
+def daemon_start(
+    foreground: bool = typer.Option(False, "--foreground", "-f", help="Run daemon in foreground"),
+    port: int = typer.Option(8888, help="Web Cockpit listening port"),
+) -> None:
+    """Start 24/7 multi-asset trading daemon."""
+    import subprocess
+    import sys
+
+    from darefx.trading.daemon import DaemonConfig, DareFXDaemon
+
+    cfg = DaemonConfig(web_port=port)
+    daemon = DareFXDaemon(config=cfg)
+
+    existing_pid = daemon.get_running_pid()
+    if existing_pid:
+        console.print(f"[yellow]DareFX Daemon is already running (PID {existing_pid}).[/yellow]")
+        return
+
+    if foreground:
+        console.print("[bold cyan]Launching DareFX 24/7 Daemon in foreground...[/bold cyan]")
+        daemon.start_foreground()
+    else:
+        console.print(
+            "[bold cyan]Launching DareFX 24/7 Daemon in detached background mode...[/bold cyan]"
+        )
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "darefx.cli",
+                "daemon",
+                "start",
+                "--foreground",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        console.print(f"[bold green]DareFX Daemon spawned with PID {proc.pid}.[/bold green]")
+        console.print("Check status with: [cyan]darefx daemon status[/cyan]")
+
+
+@daemon_app.command(name="stop")
+def daemon_stop() -> None:
+    """Stop running 24/7 trading daemon."""
+    from darefx.trading.daemon import DareFXDaemon
+
+    daemon = DareFXDaemon()
+    pid = daemon.get_running_pid()
+    if not pid:
+        console.print("[yellow]No active DareFX Daemon detected.[/yellow]")
+        return
+
+    console.print(f"[cyan]Stopping DareFX Daemon (PID {pid})...[/cyan]")
+    ok = daemon.stop_process()
+    if ok:
+        console.print("[bold green]DareFX Daemon stopped successfully.[/bold green]")
+    else:
+        console.print("[red]Failed to stop daemon process.[/red]")
+
+
+@daemon_app.command(name="status")
+def daemon_status() -> None:
+    """Check status of 24/7 trading daemon."""
+    from darefx.trading.daemon import DareFXDaemon
+
+    daemon = DareFXDaemon()
+    st = daemon.get_status()
+
+    table = Table(title="DareFX 24/7 Daemon Status")
+    table.add_column("Property", style="white")
+    table.add_column("Value", style="bold green")
+
+    if st.get("running"):
+        table.add_row("Status", "[bold green]ONLINE (RUNNING)[/bold green]")
+        table.add_row("Process ID (PID)", str(st.get("pid")))
+        table.add_row("Uptime", f"{st.get('uptime_sec', 0)} seconds")
+        table.add_row("Memory RSS", f"{st.get('memory_mb', 0)} MB")
+        table.add_row("Open Positions", str(st.get("open_positions", 0)))
+        table.add_row("Tailscale Endpoint", f"http://{st.get('tailscale_ip')}:8888")
+    else:
+        table.add_row("Status", "[bold red]OFFLINE (STOPPED)[/bold red]")
+        table.add_row("PID", "None")
+
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# Systemd Service Management CLI
+# ---------------------------------------------------------------------------
+service_app = typer.Typer(help="systemd service installation and management")
+app.add_typer(service_app, name="service")
+
+
+@service_app.command(name="install")
+def service_install(
+    user: bool = typer.Option(
+        True, help="Install as rootless user service (~/.config/systemd/user)"
+    ),
+    port: int = typer.Option(8888, help="Web Cockpit listening port"),
+) -> None:
+    """Install and enable DareFX systemd service."""
+    from darefx.trading.daemon import install_systemd_service
+
+    try:
+        path = install_systemd_service(user_mode=user, port=port)
+        console.print(f"[bold green]Installed and enabled systemd service: {path}[/bold green]")
+        console.print("Start service now with: [cyan]darefx service start[/cyan]")
+    except Exception as err:
+        console.print(f"[red]Failed installing service: {err}[/red]")
+
+
+@service_app.command(name="uninstall")
+def service_uninstall(
+    user: bool = typer.Option(True, help="Uninstall user service"),
+) -> None:
+    """Disable and uninstall DareFX systemd service."""
+    from darefx.trading.daemon import uninstall_systemd_service
+
+    ok = uninstall_systemd_service(user_mode=user)
+    if ok:
+        console.print("[green]DareFX systemd service disabled and removed.[/green]")
+    else:
+        console.print("[red]Failed to uninstall systemd service.[/red]")
+
+
+@service_app.command(name="status")
+def service_status_cmd(
+    user: bool = typer.Option(True, help="Check user service"),
+) -> None:
+    """Check systemctl status of darefx.service."""
+    from darefx.trading.daemon import run_service_command
+
+    code, out = run_service_command("status", user_mode=user)
+    color = "green" if code == 0 else "yellow"
+    console.print(f"[{color}]{out}[/{color}]")
+
+
+@service_app.command(name="start")
+def service_start_cmd(user: bool = typer.Option(True, help="Start user service")) -> None:
+    """Start darefx.service via systemctl."""
+    from darefx.trading.daemon import run_service_command
+
+    code, out = run_service_command("start", user_mode=user)
+    if code == 0:
+        console.print("[green]DareFX service started.[/green]")
+    else:
+        console.print(f"[red]Error: {out}[/red]")
+
+
+@service_app.command(name="stop")
+def service_stop_cmd(user: bool = typer.Option(True, help="Stop user service")) -> None:
+    """Stop darefx.service via systemctl."""
+    from darefx.trading.daemon import run_service_command
+
+    code, out = run_service_command("stop", user_mode=user)
+    if code == 0:
+        console.print("[green]DareFX service stopped.[/green]")
+    else:
+        console.print(f"[red]Error: {out}[/red]")
+
+
+@service_app.command(name="restart")
+def service_restart_cmd(user: bool = typer.Option(True, help="Restart user service")) -> None:
+    """Restart darefx.service via systemctl."""
+    from darefx.trading.daemon import run_service_command
+
+    code, out = run_service_command("restart", user_mode=user)
+    if code == 0:
+        console.print("[green]DareFX service restarted.[/green]")
+    else:
+        console.print(f"[red]Error: {out}[/red]")
 
 
 if __name__ == "__main__":

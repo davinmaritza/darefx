@@ -395,3 +395,62 @@ class MultiScheduler:
     def is_running(self) -> bool:
         """Check if scheduler worker is active."""
         return self._thread is not None and self._thread.is_alive()
+
+    def panic_close_all(self) -> dict[str, Any]:
+        """Emergency kill-switch: close all open positions across Forex, Crypto, and Stocks."""
+        from datetime import UTC, datetime
+
+        closed_tickets: list[int] = []
+        errors: list[str] = []
+
+        # 1. Close MT5 positions
+        try:
+            mt5_pos = self.mt5_bridge.get_positions()
+            for p in mt5_pos:
+                res = self.mt5_bridge.close_position(p.ticket)
+                if getattr(res, "success", False) or res is True:
+                    closed_tickets.append(p.ticket)
+                else:
+                    errors.append(f"MT5 ticket {p.ticket} ({p.symbol}) close failed")
+        except Exception as err:
+            errors.append(f"MT5 panic close error: {err}")
+
+        # 2. Close CCXT positions
+        try:
+            ccxt_pos = self.ccxt_adapter.get_positions()
+            for p in ccxt_pos:
+                ok = self.ccxt_adapter.close_position(p.ticket)
+                if ok:
+                    closed_tickets.append(p.ticket)
+                else:
+                    errors.append(f"CCXT ticket {p.ticket} ({p.symbol}) close failed")
+        except Exception as err:
+            errors.append(f"CCXT panic close error: {err}")
+
+        # 3. Close Stock positions
+        try:
+            stock_pos = self.stock_adapter.get_positions()
+            for p in stock_pos:
+                ok = self.stock_adapter.close_position(p.ticket)
+                if ok:
+                    closed_tickets.append(p.ticket)
+                else:
+                    errors.append(f"Stock ticket {p.ticket} ({p.symbol}) close failed")
+        except Exception as err:
+            errors.append(f"Stock panic close error: {err}")
+
+        msg = f"🚨 EMERGENCY PANIC CLOSE EXECUTED: Closed {len(closed_tickets)} positions."
+        if errors:
+            msg += f" Encountered {len(errors)} issues."
+        try:
+            self.notifier.send_message(msg)
+        except Exception as err:
+            logger.debug("Failed sending Telegram panic alert: %s", err)
+
+        return {
+            "success": len(errors) == 0,
+            "total_closed": len(closed_tickets),
+            "closed_tickets": closed_tickets,
+            "errors": errors,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
